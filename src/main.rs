@@ -14,6 +14,6 @@ fn main() {
             print!("{}\n", x.x);
         }
         // euler
-        x = x + H * (a * &x + k);
+        x = x + H * (a * x + k);
     }
 }
