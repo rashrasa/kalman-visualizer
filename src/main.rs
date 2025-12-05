@@ -43,7 +43,7 @@ fn main() -> eframe::Result {
                 x_val = x_val + h * (a * x_val + k);
                 sum_delta -= h;
             }
-            if last_update.elapsed().as_secs_f64() > 1.0 / 20.0 {
+            if last_update.elapsed().as_secs_f64() > 1.0 / 240.0 {
                 *x.write().unwrap() = x_val;
                 last_update = Instant::now();
             }
