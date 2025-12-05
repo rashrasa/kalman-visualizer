@@ -5,4 +5,8 @@ edition = "2024"
 
 [dependencies]
 egui = "0.33.2"
+eframe = "0.33.2"
+env_logger = "0.11.8"
+log = "0.4.29"
 nalgebra = "0.34.1"
+egui_plot = "0.34.0"
