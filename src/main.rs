@@ -10,7 +10,7 @@ use eframe::egui;
 use egui_plot::{Plot, Points};
 use na::Matrix2x1;
 
-use kalman_visualizer::base::{Dynamic, Integrator};
+use kalman_visualizer::base::Step;
 use kalman_visualizer::systems::msd;
 
 fn main() -> eframe::Result {
@@ -48,12 +48,11 @@ fn main() -> eframe::Result {
             last = Instant::now();
 
             while sum_delta >= h {
-                // euler
-                msd_val.step(h, Integrator::Euler);
+                msd_val.step(h);
                 sum_delta -= h;
             }
             if last_update.elapsed().as_secs_f64() > 1.0 / 240.0 {
-                *msd.write().unwrap() = msd_val;
+                *msd.write().unwrap() = msd_val.clone();
                 last_update = Instant::now();
             }
         }
