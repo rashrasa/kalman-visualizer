@@ -10,7 +10,7 @@ use eframe::egui;
 use egui_plot::{Plot, Points};
 use na::{Matrix1x2, Matrix2, Matrix2x1};
 
-use kalman_visualizer::base::Step;
+use kalman_visualizer::core::Step;
 use kalman_visualizer::systems::msd;
 
 fn main() -> eframe::Result {

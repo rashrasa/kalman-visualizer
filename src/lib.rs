@@ -1,4 +1,4 @@
 extern crate nalgebra as na;
 
-pub mod base;
+pub mod core;
 pub mod systems;
