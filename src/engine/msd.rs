@@ -1,6 +1,6 @@
 use na::{Matrix1x2, Matrix2, Matrix2x1};
 
-use crate::core::{Integrator, Step};
+use crate::engine::{Integrator, Step};
 
 #[derive(Clone)]
 pub struct MSD {

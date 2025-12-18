@@ -4,13 +4,15 @@ State estimation visualizer built with egui + eframe.
 
 ## Components
 
-### (WIP) Dynamic System Engine
+### (WIP) Dynamic System Engine (Core)
 
 - Data structures to represent continuous and discrete dynamic systems
 - Integrator choices (Euler and RK4)
 - Discretization for continous systems
 - Step function
 - Simulated measurements using gaussian noise
+- Common data structures
+- Common implementation blocks
 
 ### (WIP) State Estimators
 
@@ -30,8 +32,3 @@ State estimation visualizer built with egui + eframe.
 - Objects controllable through user input
 - Contains the system that estimators attempt to track
 - Simulates disturbances with gaussian noise
-
-### (WIP) Core
-
-- Common data structures
-- Common implementation blocks
