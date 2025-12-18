@@ -8,7 +8,7 @@ use std::{
 
 use eframe::egui;
 use egui_plot::{Plot, Points};
-use na::Matrix2x1;
+use na::{Matrix1x2, Matrix2, Matrix2x1};
 
 use kalman_visualizer::base::Step;
 use kalman_visualizer::systems::msd;
@@ -28,6 +28,14 @@ fn main() -> eframe::Result {
         M,
         K,
         Matrix2x1::new(0.0, 12.0),
+    )));
+
+    let msd = Arc::new(RwLock::new(msd::MSD::manual(
+        Matrix2::new(0.0, 1.0, 0.0, 0.0),
+        Matrix2x1::new(0.0, 0.0),
+        Matrix1x2::new(0.0, 0.0),
+        Matrix2x1::new(0.0, 0.0),
+        Matrix2x1::new(0.0, 1.0),
     )));
 
     let msd_thread = msd.clone();

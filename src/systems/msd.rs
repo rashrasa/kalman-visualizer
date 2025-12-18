@@ -4,17 +4,33 @@ use crate::base::{Integrator, Step};
 
 #[derive(Clone)]
 pub struct MSD {
-    integrator: Integrator,
+    pub integrator: Integrator,
 
-    a: Matrix2<f64>,
-    b: Matrix2x1<f64>,
-    c: Matrix1x2<f64>,
-    k: Matrix2x1<f64>,
+    pub a: Matrix2<f64>,
+    pub b: Matrix2x1<f64>,
+    pub c: Matrix1x2<f64>,
+    pub k: Matrix2x1<f64>,
 
     pub x: Matrix2x1<f64>,
 }
 
 impl MSD {
+    pub fn manual(
+        a: Matrix2<f64>,
+        b: Matrix2x1<f64>,
+        c: Matrix1x2<f64>,
+        k: Matrix2x1<f64>,
+        x0: Matrix2x1<f64>,
+    ) -> MSD {
+        MSD {
+            integrator: Integrator::Euler,
+            a: a,
+            b: b,
+            c: c,
+            k: k,
+            x: x0,
+        }
+    }
     pub fn new(m: f64, k: f64, b: f64, x0: Matrix2x1<f64>) -> MSD {
         MSD {
             integrator: Integrator::Euler,
