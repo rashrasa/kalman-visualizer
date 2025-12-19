@@ -8,10 +8,9 @@ use std::{
 
 use eframe::egui;
 use egui_plot::{Plot, Points};
-use na::{Matrix1x2, Matrix2, Matrix2x1};
+use na::{Matrix2, Matrix2x1};
 
-use kalman_visualizer::engine::Step;
-use kalman_visualizer::engine::msd;
+use kalman_visualizer::engine::{self, Measure, Step, sensor::SensorSpec};
 
 fn main() -> eframe::Result {
     env_logger::init();
@@ -22,16 +21,20 @@ fn main() -> eframe::Result {
     };
 
 
-    let msd = Arc::new(RwLock::new(msd::MSD::manual(
+    let system: Arc<RwLock<engine::continuous::Continuous<2, 2>>> = Arc::new(RwLock::new(engine::continuous::Continuous::new(
         Matrix2::new(0.0, 1.0, 0.0, 0.0),
         Matrix2x1::new(0.0, 0.0),
-        Matrix1x2::new(0.0, 0.0),
-        Matrix2x1::new(0.0, 0.0),
         Matrix2x1::new(0.0, 1.0),
+        
+        Matrix2x1::new(SensorSpec::new(10.0), SensorSpec::new(10.0)),
+
+        Matrix2::new(1.0, 0.0, 0.0, 1.0),
+        Matrix2x1::new(SensorSpec::new(0.0),SensorSpec::new(0.0)),
+
+        Matrix2x1::new(0.0, 0.0),
     )));
 
-    let msd_thread = msd.clone();
-
+    let system_thread = system.clone();
     // No join since this runs infinitely along with the app
     thread::spawn(move || {
         let mut last = Instant::now();
@@ -41,18 +44,18 @@ fn main() -> eframe::Result {
 
         let mut last_update = Instant::now();
 
-        let msd = msd_thread;
-        let mut msd_val = (*msd.read().unwrap()).clone();
+        let system = system_thread;
+        let mut system_val = (*system.read().unwrap()).clone();
         loop {
             sum_delta += last.elapsed().as_secs_f64();
             last = Instant::now();
 
             while sum_delta >= h {
-                msd_val.step(h);
+                system_val.step(h);
                 sum_delta -= h;
             }
             if last_update.elapsed().as_secs_f64() > 1.0 / 240.0 {
-                *msd.write().unwrap() = msd_val.clone();
+                *system.write().unwrap() = system_val.clone();
                 last_update = Instant::now();
             }
         }
@@ -66,13 +69,13 @@ fn main() -> eframe::Result {
         "State Estimation Visualizer",
         options,
         move |ctx, _frame| {
-            let msd_val = (*msd.read().unwrap()).clone();
-            (*pos_points.write().unwrap()).push([start.elapsed().as_secs_f64(), msd_val.x.x]);
-            (*vel_points.write().unwrap()).push([start.elapsed().as_secs_f64(), msd_val.x.y]);
+            let system_val = (*system.read().unwrap()).clone();
+            (*pos_points.write().unwrap()).push([start.elapsed().as_secs_f64(), system_val.measure(0).unwrap()]);
+            (*vel_points.write().unwrap()).push([start.elapsed().as_secs_f64(), system_val.measure(1).unwrap()]);
             egui::CentralPanel::default().show(ctx, |ui| {
                 ui.heading("State");
-                ui.label(format!("Position: {:.9}", msd_val.x.x));
-                ui.label(format!("Velocity: {:.9}", msd_val.x.y));
+                ui.label(format!("Position: {:.9}", system_val.measure(0).unwrap()));
+                ui.label(format!("Velocity: {:.9}", system_val.measure(1).unwrap()));
                 let plot = Plot::new("position_plot");
                 plot.show(ui, |ui| {
                     for point in (*pos_points.read().unwrap()).iter() {

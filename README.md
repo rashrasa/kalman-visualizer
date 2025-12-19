@@ -32,3 +32,5 @@ State estimation visualizer built with egui + eframe.
 - Objects controllable through user input
 - Contains the system that estimators attempt to track
 - Simulates disturbances with gaussian noise
+
+## References
