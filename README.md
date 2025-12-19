@@ -34,3 +34,5 @@ State estimation visualizer built with egui + eframe.
 - Simulates disturbances with gaussian noise
 
 ## References
+
+RK4: [https://lpsa.swarthmore.edu/NumInt/NumIntFourth.html]

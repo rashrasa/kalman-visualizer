@@ -1,3 +1,6 @@
+pub mod continuous;
+pub mod sensor;
+
 #[derive(Clone, Debug)]
 pub enum Integrator {
     Euler,
@@ -15,8 +18,5 @@ pub trait Step {
 }
 
 pub trait Measure {
-    fn measure(&self, dim:usize) -> Result<f64, FailedMeasurementError>;
+    fn measure(&self, dim: usize) -> Result<f64, FailedMeasurementError>;
 }
-
-pub mod continuous;
-pub mod sensor;
