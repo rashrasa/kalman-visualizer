@@ -1,7 +1,14 @@
-use std::time::{Duration, Instant};
+use std::{
+    collections::HashSet,
+    time::{Duration, Instant},
+};
+
+use egui::Key;
 
 pub mod continuous;
 pub mod sensor;
+
+pub const INPUT_KEYS: [Key; 6] = [Key::W, Key::S, Key::A, Key::D, Key::H, Key::G];
 
 #[derive(Clone, Debug)]
 pub enum Integrator {

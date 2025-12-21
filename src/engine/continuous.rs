@@ -15,7 +15,7 @@ pub struct Continuous<const N: usize, const K: usize> {
     k: Matrix<f64, Const<N>, Const<1>, ArrayStorage<f64, N, 1>>,
     w: Matrix<SensorSpec, Const<N>, Const<1>, ArrayStorage<SensorSpec, N, 1>>,
 
-    c: Matrix<f64, Const<N>, Const<N>, ArrayStorage<f64, N, N>>,
+    c: Matrix<f64, Const<K>, Const<N>, ArrayStorage<f64, K, N>>,
     v: Matrix<SensorSpec, Const<N>, Const<1>, ArrayStorage<SensorSpec, N, 1>>,
 
     x: Matrix<f64, Const<N>, Const<1>, ArrayStorage<f64, N, 1>>,
@@ -30,7 +30,7 @@ impl<const N: usize, const K: usize> Continuous<N, K> {
         k: Matrix<f64, Const<N>, Const<1>, ArrayStorage<f64, N, 1>>,
         w: Matrix<SensorSpec, Const<N>, Const<1>, ArrayStorage<SensorSpec, N, 1>>,
 
-        c: Matrix<f64, Const<N>, Const<N>, ArrayStorage<f64, N, N>>,
+        c: Matrix<f64, Const<K>, Const<N>, ArrayStorage<f64, K, N>>,
         v: Matrix<SensorSpec, Const<N>, Const<1>, ArrayStorage<SensorSpec, N, 1>>,
 
         x0: Matrix<f64, Const<N>, Const<1>, ArrayStorage<f64, N, 1>>,

@@ -7,17 +7,21 @@ use std::{
 };
 
 use eframe::egui;
-use egui::{Color32, Id};
+use egui::{Color32, Event, Id, Key};
 use egui_plot::{Plot, Points};
+use env_logger::Builder;
 use na::{Matrix, Matrix2, Matrix2x1};
 
 use kalman_visualizer::{
-    engine::{Integrator, Measure, Step, continuous::Continuous, sensor::SensorSpec},
-    environment::{input::InputHandler, vehicle::Car},
+    engine::{INPUT_KEYS, Integrator, Measure, Step, continuous::Continuous, sensor::SensorSpec},
+    environment::vehicle::Car,
 };
 
 fn main() -> eframe::Result {
-    env_logger::init();
+    Builder::from_default_env()
+        .filter_level(log::LevelFilter::Info)
+        .target(env_logger::Target::Stdout)
+        .init();
 
     // No join since this runs infinitely
     thread::spawn(move || {
@@ -40,8 +44,7 @@ fn main() -> eframe::Result {
             }
         }
     });
-    let input_handler = InputHandler::new();
-    let car_handler = Car::spawn((0.0, 0.0), 6.0, 10.0, 100.0, 240, &input_handler);
+    let mut car_handler = Car::spawn((0.0, 0.0), 6.0, 10.0, 100.0, 240.0);
 
     let start = Instant::now();
 
@@ -71,6 +74,15 @@ fn main() -> eframe::Result {
             egui::CentralPanel::default().show(ctx, |ui| {
                 ui.heading("Dynamic System Visualizer");
             });
+
+            let keys = ctx.input(|i| i.keys_down.clone());
+            for key in INPUT_KEYS {
+                if keys.contains(&key) {
+                    car_handler.notify_input(key, true);
+                } else {
+                    car_handler.notify_input(key, false);
+                }
+            }
 
             ctx.request_repaint();
         },
