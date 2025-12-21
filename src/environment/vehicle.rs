@@ -21,10 +21,13 @@ pub struct Car {
     max_braking_abs: f64,
     max_speed: f64,
 
+    // angular_vel = max_turning_ratio / speed
+    max_turning_ratio: f64,
+
     // state
     // x, y, theta
-    // position, velocity, acceleration
-    ds: Continuous<9, 1>,
+    // position, velocity
+    ds: Continuous<6, 2, 2>,
 
     cruise_control: bool,
     cruise_control_set_point: f64,
@@ -84,35 +87,33 @@ impl Car {
         max_acceleration_abs: f64,
         max_braking_abs: f64,
         max_speed: f64,
+        max_turning_ratio: f64,
         polling_rate: f64,
     ) -> CarHandler {
         let car = Car {
             ds: Continuous::new(
                 Integrator::RK4,
-                Matrix::<f64, Const<9>, Const<9>, ArrayStorage<f64, 9, 9>>::from_data(
+                Matrix::<f64, Const<6>, Const<6>, ArrayStorage<f64, 6, 6>>::from_data(
                     ArrayStorage([
-                        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-                        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-                        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-                        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-                        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-                        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-                        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-                        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-                        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
                     ]),
                 ),
-                Matrix::<f64, Const<9>, Const<1>, ArrayStorage<f64, 9, 1>>::from_data(
-                    ArrayStorage([[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]]),
+                Matrix::<f64, Const<6>, Const<2>, ArrayStorage<f64, 6, 2>>::from_data(
+                    ArrayStorage([
+                        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                    ]),
                 ),
-                Matrix::<f64, Const<9>, Const<1>, ArrayStorage<f64, 9, 1>>::from_data(
-                    ArrayStorage([[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]]),
+                Matrix::<f64, Const<6>, Const<1>, ArrayStorage<f64, 6, 1>>::from_data(
+                    ArrayStorage([[0.0, 0.0, 0.0, 0.0, 0.0, 0.0]]),
                 ),
-                Matrix::<SensorSpec, Const<9>, Const<1>, ArrayStorage<SensorSpec, 9, 1>>::from_data(
+                Matrix::<SensorSpec, Const<6>, Const<1>, ArrayStorage<SensorSpec, 6, 1>>::from_data(
                     ArrayStorage([[
-                        SensorSpec::new(0.0),
-                        SensorSpec::new(0.0),
-                        SensorSpec::new(0.0),
                         SensorSpec::new(0.0),
                         SensorSpec::new(0.0),
                         SensorSpec::new(0.0),
@@ -121,40 +122,24 @@ impl Car {
                         SensorSpec::new(0.0),
                     ]]),
                 ),
-                Matrix::<f64, Const<1>, Const<9>, ArrayStorage<f64, 1, 9>>::from_data(
+                Matrix::<f64, Const<2>, Const<6>, ArrayStorage<f64, 2, 6>>::from_data(
                     ArrayStorage([
-                        [0.0],
-                        [0.0],
-                        [0.0],
-                        [0.0],
-                        [0.0],
-                        [0.0],
-                        [0.0],
-                        [0.0],
-                        [0.0],
+                        [0.0, 0.0],
+                        [0.0, 0.0],
+                        [0.0, 0.0],
+                        [0.0, 0.0],
+                        [0.0, 0.0],
+                        [0.0, 0.0],
                     ]),
                 ),
-                Matrix::<SensorSpec, Const<9>, Const<1>, ArrayStorage<SensorSpec, 9, 1>>::from_data(
-                    ArrayStorage([[
-                        SensorSpec::new(0.0),
-                        SensorSpec::new(0.0),
-                        SensorSpec::new(0.0),
-                        SensorSpec::new(0.0),
-                        SensorSpec::new(0.0),
-                        SensorSpec::new(0.0),
-                        SensorSpec::new(0.0),
-                        SensorSpec::new(0.0),
-                        SensorSpec::new(0.0),
-                    ]]),
+                Matrix::<SensorSpec, Const<2>, Const<1>, ArrayStorage<SensorSpec, 2, 1>>::from_data(
+                    ArrayStorage([[SensorSpec::new(0.0), SensorSpec::new(0.0)]]),
                 ),
-                Matrix::<f64, Const<9>, Const<1>, ArrayStorage<f64, 9, 1>>::from_data(
+                Matrix::<f64, Const<6>, Const<1>, ArrayStorage<f64, 6, 1>>::from_data(
                     ArrayStorage([[
                         initial_position.0,
                         initial_position.1,
                         PI / 2.0,
-                        0.0,
-                        0.0,
-                        0.0,
                         0.0,
                         0.0,
                         0.0,
@@ -165,6 +150,7 @@ impl Car {
             max_acceleration_abs: max_acceleration_abs.abs(),
             max_braking_abs: max_braking_abs.abs(),
             max_speed: max_speed,
+            max_turning_ratio: max_turning_ratio,
 
             cruise_control: false,
             cruise_control_set_point: 0.0,

@@ -1,6 +1,7 @@
 extern crate nalgebra as na;
 
 use std::{
+    f64::consts::PI,
     sync::{Arc, RwLock},
     thread,
     time::Instant,
@@ -44,7 +45,7 @@ fn main() -> eframe::Result {
             }
         }
     });
-    let mut car_handler = Car::spawn((0.0, 0.0), 6.0, 10.0, 100.0, 240.0);
+    let mut car_handler = Car::spawn((0.0, 0.0), 6.0, 10.0, 100.0, (2.0 * PI) / 1.0, 240.0);
 
     let start = Instant::now();
 
@@ -78,9 +79,9 @@ fn main() -> eframe::Result {
             let keys = ctx.input(|i| i.keys_down.clone());
             for key in INPUT_KEYS {
                 if keys.contains(&key) {
-                    car_handler.notify_input(key, true);
+                    car_handler.notify_input(key, true).unwrap();
                 } else {
-                    car_handler.notify_input(key, false);
+                    car_handler.notify_input(key, false).unwrap();
                 }
             }
 

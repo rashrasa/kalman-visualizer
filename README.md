@@ -35,4 +35,5 @@ State estimation visualizer built with egui + eframe.
 
 ## References
 
-RK4: [https://lpsa.swarthmore.edu/NumInt/NumIntFourth.html]
+- RK4: [https://lpsa.swarthmore.edu/NumInt/NumIntFourth.html]
+- Vehicle Dynamics: Vehicle Dynamics and Control by Rajesh Rajamani, Second Edition, pages

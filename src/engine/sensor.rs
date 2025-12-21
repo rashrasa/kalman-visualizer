@@ -5,9 +5,9 @@ pub struct SensorSpec {
 
 impl SensorSpec {
     pub fn new(variance: f64) -> Self {
-        SensorSpec{variance}
+        SensorSpec { variance }
     }
-    pub fn sigma_y(&self) -> f64 {
+    pub fn variance(&self) -> f64 {
         return self.variance;
     }
 }

@@ -1,9 +1,7 @@
-use std::{
-    collections::HashSet,
-    time::{Duration, Instant},
-};
+use std::time::{Duration, Instant};
 
 use egui::Key;
+use na::{ArrayStorage, Const, Matrix};
 
 pub mod continuous;
 pub mod sensor;
@@ -22,8 +20,8 @@ pub enum FailedMeasurementError {
     NoSensorAttached,
 }
 
-pub trait Step {
-    fn step(&mut self, dt: f64);
+pub trait Step<const R: usize> {
+    fn step(&mut self, dt: f64, u: Matrix<f64, Const<R>, Const<1>, ArrayStorage<f64, R, 1>>);
 }
 
 pub trait Measure {
