@@ -13,7 +13,9 @@ use egui::Key;
 use log::info;
 use na::{ArrayStorage, Const, Matrix, Matrix1x2};
 
-use crate::engine::{Integrator, continuous::Continuous, create_event_loop, sensor::SensorSpec};
+use crate::engine::{
+    Integrator, Measure, Step, continuous::Continuous, create_event_loop, sensor::SensorSpec,
+};
 
 pub struct Car {
     // constants
@@ -31,22 +33,35 @@ pub struct Car {
 
     cruise_control: bool,
     cruise_control_set_point: f64,
+
+    input_acceleration: f64,
+    input_steering: f64,
 }
 
 impl Car {
-    pub fn accelerate(&mut self, dt: Duration) {
-        info!("accelerating");
+    pub fn u(&self) -> Matrix<f64, Const<2>, Const<1>, ArrayStorage<f64, 2, 1>> {
+        Matrix::<f64, Const<2>, Const<1>, ArrayStorage<f64, 2, 1>>::new(
+            self.input_acceleration,
+            self.input_steering,
+        )
+    }
+    pub fn step(&mut self, dt: f64) {
+        self.ds.step(dt, self.u());
+        info!("{}", self.ds.measure(1).unwrap());
+    }
+    pub fn accelerate(&mut self, dt: f64) {
+        self.input_acceleration = self.max_acceleration_abs;
     }
 
-    pub fn brake(&mut self, dt: Duration) {
-        info!("braking");
+    pub fn brake(&mut self, dt: f64) {
+        self.input_acceleration = -self.max_braking_abs;
     }
 
-    pub fn steer_right(&mut self, dt: Duration) {
+    pub fn steer_right(&mut self, dt: f64) {
         info!("steering right");
     }
 
-    pub fn steer_left(&mut self, dt: Duration) {
+    pub fn steer_left(&mut self, dt: f64) {
         info!("steering left");
     }
 
@@ -98,15 +113,15 @@ impl Car {
                         [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
                         [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
                         [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-                        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-                        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-                        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                        [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                        [0.0, 1.0, 0.0, 0.0, 0.0, 0.0],
+                        [0.0, 0.0, 1.0, 0.0, 0.0, 0.0],
                     ]),
                 ),
                 Matrix::<f64, Const<6>, Const<2>, ArrayStorage<f64, 6, 2>>::from_data(
                     ArrayStorage([
-                        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-                        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                        [0.0, 0.0, 0.0, 0.0, 1.0, 0.0],
+                        [0.0, 0.0, 0.0, 0.0, 0.0, 1.0],
                     ]),
                 ),
                 Matrix::<f64, Const<6>, Const<1>, ArrayStorage<f64, 6, 1>>::from_data(
@@ -124,8 +139,8 @@ impl Car {
                 ),
                 Matrix::<f64, Const<2>, Const<6>, ArrayStorage<f64, 2, 6>>::from_data(
                     ArrayStorage([
-                        [0.0, 0.0],
-                        [0.0, 0.0],
+                        [1.0, 0.0],
+                        [0.0, 1.0],
                         [0.0, 0.0],
                         [0.0, 0.0],
                         [0.0, 0.0],
@@ -154,6 +169,9 @@ impl Car {
 
             cruise_control: false,
             cruise_control_set_point: 0.0,
+
+            input_acceleration: 0.0,
+            input_steering: 0.0,
         };
 
         let (tx, rx) = channel::<CarMessage>();
@@ -184,12 +202,14 @@ impl Car {
                 polling_rate,
                 Box::new(move |dt| {
                     while !*closed.read().unwrap() {
+                        let dt = dt.as_secs_f64();
                         let current_input_state = input_state.read().unwrap().clone();
                         for (key, enabled) in current_input_state.iter() {
                             if !*enabled {
                                 continue;
                             }
-                            match (*key) {
+
+                            match *key {
                                 Key::W => (&mut car).accelerate(dt),
                                 Key::S => (&mut car).brake(dt),
                                 Key::A => (&mut car).steer_left(dt),
@@ -199,6 +219,7 @@ impl Car {
                                 _ => (),
                             }
                         }
+                        (&mut car).step(dt);
                     }
                 }),
             )();
