@@ -51,9 +51,15 @@ impl<const N: usize, const R: usize, const P: usize> Continuous<N, R, P> {
     }
 }
 
-impl<const N: usize, const R: usize, const P: usize> Step<R> for Continuous<N, R, P> {
-    fn step(&mut self, dt: f64, u: Matrix<f64, Const<R>, Const<1>, ArrayStorage<f64, R, 1>>) {
-        // TODO: Implement vector u for input, add gaussian noise
+impl<const N: usize, const R: usize, const P: usize> Step<N, R> for Continuous<N, R, P> {
+    fn step(
+        &mut self,
+        dt: f64,
+        u: Matrix<f64, Const<R>, Const<1>, ArrayStorage<f64, R, 1>>,
+        min_clamp: Matrix<f64, Const<N>, Const<1>, ArrayStorage<f64, N, 1>>,
+        max_clamp: Matrix<f64, Const<N>, Const<1>, ArrayStorage<f64, N, 1>>,
+    ) {
+        // TODO: Add gaussian noise
         match self.integrator {
             Integrator::Euler => self.x = self.x + dt * (self.a * self.x + self.k + self.b * u),
 
@@ -69,15 +75,14 @@ impl<const N: usize, const R: usize, const P: usize> Step<R> for Continuous<N, R
                 self.x = self.x + (k1 + 2.0 * k2 + 2.0 * k3 + k4) / 6.0 * dt
             }
         }
+
+        self.x = self.x.sup(&min_clamp);
+        self.x = self.x.inf(&max_clamp);
     }
 }
 
-impl<const N: usize, const R: usize, const P: usize> Measure for Continuous<N, R, P> {
-    fn measure(&self, dim: usize) -> Result<f64, FailedMeasurementError> {
-        if dim > P - 1 {
-            return Err(super::FailedMeasurementError::DimensionOutOfBounds);
-        }
-
-        Ok((self.c * self.x).get(dim).unwrap().clone())
+impl<const N: usize, const R: usize, const P: usize> Measure<P> for Continuous<N, R, P> {
+    fn measure(&self) -> Matrix<f64, Const<P>, Const<1>, ArrayStorage<f64, P, 1>> {
+        (self.c * self.x).clone()
     }
 }

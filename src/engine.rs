@@ -20,12 +20,18 @@ pub enum FailedMeasurementError {
     NoSensorAttached,
 }
 
-pub trait Step<const R: usize> {
-    fn step(&mut self, dt: f64, u: Matrix<f64, Const<R>, Const<1>, ArrayStorage<f64, R, 1>>);
+pub trait Step<const N: usize, const R: usize> {
+    fn step(
+        &mut self,
+        dt: f64,
+        u: Matrix<f64, Const<R>, Const<1>, ArrayStorage<f64, R, 1>>,
+        min_clamp: Matrix<f64, Const<N>, Const<1>, ArrayStorage<f64, N, 1>>,
+        max_clamp: Matrix<f64, Const<N>, Const<1>, ArrayStorage<f64, N, 1>>,
+    );
 }
 
-pub trait Measure {
-    fn measure(&self, dim: usize) -> Result<f64, FailedMeasurementError>;
+pub trait Measure<const P: usize> {
+    fn measure(&self) -> Matrix<f64, Const<P>, Const<1>, ArrayStorage<f64, P, 1>>;
 }
 
 pub fn create_event_loop(
