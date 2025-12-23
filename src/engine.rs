@@ -1,10 +1,11 @@
+pub mod continuous;
+pub mod continuous_nl;
+pub mod sensor;
+
 use std::time::{Duration, Instant};
 
 use egui::Key;
 use na::{ArrayStorage, Const, Matrix};
-
-pub mod continuous;
-pub mod sensor;
 
 pub const INPUT_KEYS: [Key; 6] = [Key::W, Key::S, Key::A, Key::D, Key::H, Key::G];
 
@@ -23,6 +24,17 @@ pub enum FailedMeasurementError {
 pub trait Step<const N: usize, const R: usize> {
     fn step(
         &mut self,
+        dt: f64,
+        u: Matrix<f64, Const<R>, Const<1>, ArrayStorage<f64, R, 1>>,
+        min_clamp: Matrix<f64, Const<N>, Const<1>, ArrayStorage<f64, N, 1>>,
+        max_clamp: Matrix<f64, Const<N>, Const<1>, ArrayStorage<f64, N, 1>>,
+    );
+}
+
+pub trait StepNL<const N: usize, const R: usize> {
+    fn step(
+        &mut self,
+        t: f64,
         dt: f64,
         u: Matrix<f64, Const<R>, Const<1>, ArrayStorage<f64, R, 1>>,
         min_clamp: Matrix<f64, Const<N>, Const<1>, ArrayStorage<f64, N, 1>>,

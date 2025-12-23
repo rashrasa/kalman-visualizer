@@ -6,23 +6,31 @@ use std::{
         mpsc::{Receiver, SendError, Sender, channel},
     },
     thread,
-    time::Duration,
 };
 
 use egui::Key;
 use log::info;
-use na::{ArrayStorage, Const, Matrix, Matrix1x2};
+use na::{ArrayStorage, Const, Matrix};
 
 use crate::engine::{
     Integrator, Measure, Step, continuous::Continuous, create_event_loop, sensor::SensorSpec,
 };
 
+// friction = MU * F_N
+const MU: f64 = 0.4;
+const G: f64 = 9.81;
+
 pub struct Car {
     // constants
+    mass: f64,
+
+    // Input limits
     max_acceleration_abs: f64,
     max_braking_abs: f64,
-    max_speed: f64,
+    max_turning_abs: f64,
 
+    // "Physical" state limits
+    max_speed: f64,
     // angular_vel = max_turning_ratio / speed
     max_turning_ratio: f64,
 
@@ -34,15 +42,15 @@ pub struct Car {
     cruise_control: bool,
     cruise_control_set_point: f64,
 
-    input_acceleration: f64,
-    input_steering: f64,
+    input_forward_force: f64,
+    input_steering_accel: f64,
 }
 
 impl Car {
     pub fn u(&self) -> Matrix<f64, Const<2>, Const<1>, ArrayStorage<f64, 2, 1>> {
         Matrix::<f64, Const<2>, Const<1>, ArrayStorage<f64, 2, 1>>::new(
-            self.input_acceleration,
-            self.input_steering,
+            self.input_forward_force,
+            self.input_steering_accel,
         )
     }
     pub fn step(&mut self, dt: f64) {
@@ -66,42 +74,43 @@ impl Car {
         // TODO: Slow down car to simulate friction
 
         self.ds.step(dt, self.u(), -abs_clamp, abs_clamp);
-        info!("{}", state);
     }
-    pub fn accelerate(&mut self, dt: f64) {
-        self.input_acceleration = self.max_acceleration_abs;
-    }
-
-    pub fn brake(&mut self, dt: f64) {
-        self.input_acceleration = -self.max_braking_abs;
+    pub fn accelerate(&mut self) {
+        self.input_forward_force = self.max_acceleration_abs * self.mass * G;
     }
 
-    pub fn steer_right(&mut self, dt: f64) {
-        info!("steering right");
+    pub fn brake(&mut self) {
+        self.input_forward_force = -self.max_braking_abs;
     }
 
-    pub fn steer_left(&mut self, dt: f64) {
-        info!("steering left");
+    pub fn steer_right(&mut self) {
+        self.input_steering_accel = -self.max_turning_abs;
     }
 
-    pub fn zero_accel(&mut self, dt: f64) {
-        self.input_acceleration = 0.0;
-        info!("zeroed accel")
+    pub fn steer_left(&mut self) {
+        self.input_steering_accel = self.max_turning_abs;
     }
 
-    pub fn zero_steer(&mut self, dt: f64) {
-        self.input_steering = 0.0;
+    pub fn zero_accel(&mut self) {
+        self.input_forward_force = 0.0;
+    }
+
+    pub fn zero_steer(&mut self) {
+        self.input_steering_accel = 0.0;
     }
 
     pub fn cruise_control_enable(&mut self) {
+        self.cruise_control = true;
         info!("enabled cruise control");
     }
 
     pub fn cruise_control_set_point(&mut self, set_point: f64) {
+        self.cruise_control_set_point = set_point;
         info!("set cruise control to {}m/s", set_point);
     }
 
     pub fn cruise_control_disable(&mut self) {
+        self.cruise_control = false;
         info!("disabled cruise control");
     }
 }
@@ -129,7 +138,7 @@ impl CarHandler {
         return self.thread_sender.send(CarMessage::Terminate);
     }
     pub fn measure(&self) -> Matrix<f64, Const<6>, Const<1>, ArrayStorage<f64, 6, 1>> {
-        self.thread_sender.send(CarMessage::Measure);
+        self.thread_sender.send(CarMessage::Measure).unwrap();
         match self.thread_receiver.recv().unwrap() {
             MainMessage::Measurement(m) => m,
         }
@@ -139,8 +148,10 @@ impl CarHandler {
 impl Car {
     pub fn spawn(
         initial_position: (f64, f64),
+        mass: f64,
         max_acceleration_abs: f64,
         max_braking_abs: f64,
+        max_turning_abs: f64,
         max_speed: f64,
         max_turning_ratio: f64,
         polling_rate: f64,
@@ -202,17 +213,19 @@ impl Car {
                     ]]),
                 ),
             ),
+            mass: mass.abs(),
 
             max_acceleration_abs: max_acceleration_abs.abs(),
             max_braking_abs: max_braking_abs.abs(),
+            max_turning_abs: max_turning_abs.abs(),
             max_speed: max_speed,
             max_turning_ratio: max_turning_ratio,
 
             cruise_control: false,
             cruise_control_set_point: 0.0,
 
-            input_acceleration: 0.0,
-            input_steering: 0.0,
+            input_forward_force: 0.0,
+            input_steering_accel: 0.0,
         };
 
         let (tx, rx) = channel::<CarMessage>();
@@ -220,7 +233,7 @@ impl Car {
 
         thread::spawn(move || {
             let closed = Arc::new(RwLock::new(false));
-            let input_state = Arc::new(RwLock::new(HashMap::<Key, bool>::with_capacity(16)));
+            let input_state = Arc::new(RwLock::new(HashMap::<Key, bool>::with_capacity(100)));
             let car = Arc::new(RwLock::new(car));
 
             let closed_input = closed.clone();
@@ -255,26 +268,38 @@ impl Car {
                     while !*closed.read().unwrap() {
                         let dt = dt.as_secs_f64();
                         let current_input_state = input_state.read().unwrap().clone();
+                        let mut accel_enabled = (false, false);
+                        let mut steer_enabled = (false, false);
                         for (key, enabled) in current_input_state.iter() {
-                            if !*enabled {
+                            if *enabled {
                                 match *key {
-                                    Key::W => (&mut car.write().unwrap()).zero_accel(dt),
-                                    Key::S => (&mut car.write().unwrap()).zero_accel(dt),
-                                    Key::A => (&mut car.write().unwrap()).zero_steer(dt),
-                                    Key::D => (&mut car.write().unwrap()).zero_steer(dt),
-                                    _ => (),
-                                }
-                            } else {
-                                match *key {
-                                    Key::W => (&mut car.write().unwrap()).accelerate(dt),
-                                    Key::S => (&mut car.write().unwrap()).brake(dt),
-                                    Key::A => (&mut car.write().unwrap()).steer_left(dt),
-                                    Key::D => (&mut car.write().unwrap()).steer_right(dt),
+                                    Key::W => {
+                                        (&mut car.write().unwrap()).accelerate();
+                                        accel_enabled.0 = true;
+                                    }
+                                    Key::S => {
+                                        (&mut car.write().unwrap()).brake();
+                                        accel_enabled.1 = true;
+                                    }
+                                    Key::A => {
+                                        (&mut car.write().unwrap()).steer_left();
+                                        steer_enabled.0 = true;
+                                    }
+                                    Key::D => {
+                                        (&mut car.write().unwrap()).steer_right();
+                                        steer_enabled.1 = true;
+                                    }
                                     Key::H => (&mut car.write().unwrap()).cruise_control_enable(),
                                     Key::G => (&mut car.write().unwrap()).cruise_control_disable(),
                                     _ => (),
                                 }
                             }
+                        }
+                        if !accel_enabled.0 && !accel_enabled.1 {
+                            (&mut car.write().unwrap()).zero_accel();
+                        }
+                        if !steer_enabled.0 && !steer_enabled.1 {
+                            (&mut car.write().unwrap()).zero_steer();
                         }
                         (&mut car.write().unwrap()).step(dt);
                     }

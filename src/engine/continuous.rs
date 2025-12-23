@@ -1,6 +1,6 @@
 use na::{ArrayStorage, Const, Matrix};
 
-use crate::engine::{FailedMeasurementError, Integrator, Measure, Step, sensor::SensorSpec};
+use crate::engine::{Integrator, Measure, Step, sensor::SensorSpec};
 
 /// N - Number of states
 /// R - Number of inputs
@@ -23,7 +23,7 @@ pub struct Continuous<const N: usize, const R: usize, const P: usize> {
 }
 
 impl<const N: usize, const R: usize, const P: usize> Continuous<N, R, P> {
-    pub fn new(
+    pub const fn new(
         integrator: Integrator,
 
         a: Matrix<f64, Const<N>, Const<N>, ArrayStorage<f64, N, N>>,

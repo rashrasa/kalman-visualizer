@@ -4,7 +4,7 @@ pub struct SensorSpec {
 }
 
 impl SensorSpec {
-    pub fn new(variance: f64) -> Self {
+    pub const fn new(variance: f64) -> Self {
         SensorSpec { variance }
     }
     pub fn variance(&self) -> f64 {
