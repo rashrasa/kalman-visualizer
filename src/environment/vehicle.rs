@@ -1,6 +1,5 @@
 use std::{
     collections::HashMap,
-    f64::consts::PI,
     sync::{
         Arc, RwLock,
         mpsc::{Receiver, SendError, Sender, channel},
@@ -13,17 +12,18 @@ use log::info;
 use na::{ArrayStorage, Const, Matrix};
 
 use crate::engine::{
-    Integrator, Measure, Step, continuous::Continuous, create_event_loop, sensor::SensorSpec,
+    Integrator, Measure, StepNL,
+    continuous_nl::{ContinuousNL, StateDifferentialEquations},
+    create_event_loop,
+    sensor::SensorSpec,
 };
 
 // friction = MU * F_N
 const MU: f64 = 0.4;
 const G: f64 = 9.81;
+const MASS: f64 = 1000.0;
 
 pub struct Car {
-    // constants
-    mass: f64,
-
     // Input limits
     max_acceleration_abs: f64,
     max_braking_abs: f64,
@@ -37,22 +37,15 @@ pub struct Car {
     // state
     // x, y, theta
     // position, velocity
-    ds: Continuous<6, 2, 6>,
+    ds: ContinuousNL<6, 2, 6>,
 
     cruise_control: bool,
     cruise_control_set_point: f64,
 
-    input_forward_force: f64,
-    input_steering_accel: f64,
+    input: Matrix<f64, Const<2>, Const<1>, ArrayStorage<f64, 2, 1>>,
 }
 
 impl Car {
-    pub fn u(&self) -> Matrix<f64, Const<2>, Const<1>, ArrayStorage<f64, 2, 1>> {
-        Matrix::<f64, Const<2>, Const<1>, ArrayStorage<f64, 2, 1>>::new(
-            self.input_forward_force,
-            self.input_steering_accel,
-        )
-    }
     pub fn step(&mut self, dt: f64) {
         let state = self.ds.measure();
 
@@ -63,40 +56,42 @@ impl Car {
         let speed = (v_x * v_x + v_y * v_y).sqrt();
 
         let abs_clamp = Matrix::<f64, Const<6>, Const<1>, ArrayStorage<f64, 6, 1>>::new(
+            0.0,
+            0.0,
+            0.0,
             self.max_speed * p_t.sin(),
             self.max_speed * p_t.cos(),
             self.max_turning_ratio / speed,
-            self.max_acceleration_abs * p_t.sin(),
-            self.max_acceleration_abs * p_t.cos(),
-            f64::MAX,
         );
 
         // TODO: Slow down car to simulate friction
 
-        self.ds.step(dt, self.u(), -abs_clamp, abs_clamp);
+        self.ds.step(0.0, dt, self.input, -abs_clamp, abs_clamp);
     }
     pub fn accelerate(&mut self) {
-        self.input_forward_force = self.max_acceleration_abs * self.mass * G;
+        self.input[0] = self.max_acceleration_abs * MASS * G;
+        info!("Input force: {} N", self.input[0]);
     }
 
     pub fn brake(&mut self) {
-        self.input_forward_force = -self.max_braking_abs;
+        self.input[0] = -self.max_braking_abs * MASS * G;
+        info!("Input force: {} N", self.input[0]);
     }
 
     pub fn steer_right(&mut self) {
-        self.input_steering_accel = -self.max_turning_abs;
+        self.input[1] = -self.max_turning_abs;
     }
 
     pub fn steer_left(&mut self) {
-        self.input_steering_accel = self.max_turning_abs;
+        self.input[1] = self.max_turning_abs;
     }
 
     pub fn zero_accel(&mut self) {
-        self.input_forward_force = 0.0;
+        self.input[0] = 0.0;
     }
 
     pub fn zero_steer(&mut self) {
-        self.input_steering_accel = 0.0;
+        self.input[1] = 0.0;
     }
 
     pub fn cruise_control_enable(&mut self) {
@@ -148,7 +143,7 @@ impl CarHandler {
 impl Car {
     pub fn spawn(
         initial_position: (f64, f64),
-        mass: f64,
+        initial_orientation: f64,
         max_acceleration_abs: f64,
         max_braking_abs: f64,
         max_turning_abs: f64,
@@ -158,62 +153,48 @@ impl Car {
     ) -> CarHandler {
         // Car "knows" its own full state, will expose noisy measurements in the future
         let car = Car {
-            ds: Continuous::new(
+            // dx/dt = x.
+            // dy/dt = y.
+            // dtheta/dt = theta.
+            // dx./dt = - F_N*mu*sin(theta)/M + u[0] * sin(theta)/M
+            // dy./dt = - F_N*mu*cos(theta)/M + u[0] * cos(theta)/M
+            // dtheta./dt = u[1]
+            ds: ContinuousNL::new(
                 Integrator::RK4,
-                Matrix::<f64, Const<6>, Const<6>, ArrayStorage<f64, 6, 6>>::from_data(
-                    ArrayStorage([
-                        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-                        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-                        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-                        [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-                        [0.0, 1.0, 0.0, 0.0, 0.0, 0.0],
-                        [0.0, 0.0, 1.0, 0.0, 0.0, 0.0],
-                    ]),
-                ),
-                Matrix::<f64, Const<6>, Const<2>, ArrayStorage<f64, 6, 2>>::from_data(
-                    ArrayStorage([
-                        [0.0, 0.0, 0.0, 0.0, 1.0, 0.0],
-                        [0.0, 0.0, 0.0, 0.0, 0.0, 1.0],
-                    ]),
-                ),
-                Matrix::<f64, Const<6>, Const<1>, ArrayStorage<f64, 6, 1>>::from_data(
-                    ArrayStorage([[0.0, 0.0, 0.0, 0.0, 0.0, 0.0]]),
-                ),
-                Matrix::<SensorSpec, Const<6>, Const<1>, ArrayStorage<SensorSpec, 6, 1>>::from_data(
-                    ArrayStorage([[
-                        SensorSpec::new(0.0),
-                        SensorSpec::new(0.0),
-                        SensorSpec::new(0.0),
-                        SensorSpec::new(0.0),
-                        SensorSpec::new(0.0),
-                        SensorSpec::new(0.0),
-                    ]]),
-                ),
-                Matrix::<f64, Const<6>, Const<6>, ArrayStorage<f64, 6, 6>>::identity_generic(
-                    Const::<6>, Const::<6>,
-                ),
-                Matrix::<SensorSpec, Const<6>, Const<1>, ArrayStorage<SensorSpec, 6, 1>>::from_data(
-                    ArrayStorage([[
-                        SensorSpec::new(0.0),
-                        SensorSpec::new(0.0),
-                        SensorSpec::new(0.0),
-                        SensorSpec::new(0.0),
-                        SensorSpec::new(0.0),
-                        SensorSpec::new(0.0),
-                    ]]),
-                ),
-                Matrix::<f64, Const<6>, Const<1>, ArrayStorage<f64, 6, 1>>::from_data(
-                    ArrayStorage([[
-                        initial_position.0,
-                        initial_position.1,
-                        PI / 2.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                    ]]),
-                ),
+                StateDifferentialEquations::from_data(ArrayStorage([[
+                    |x, _, _| x[3],
+                    |x, _, _| x[4],
+                    |x, _, _| x[5],
+                    |x, u, _| ((x[2]).sin() / MASS) * (MASS * G * MU + u[0]),
+                    |x, u, _| ((x[2]).cos() / MASS) * (MASS * G * MU + u[0]),
+                    |_, u, _| u[1],
+                ]])),
+                Matrix::from_data(ArrayStorage([[
+                    SensorSpec::new(0.0),
+                    SensorSpec::new(0.0),
+                    SensorSpec::new(0.0),
+                    SensorSpec::new(0.0),
+                    SensorSpec::new(0.0),
+                    SensorSpec::new(0.0),
+                ]])),
+                Matrix::<f64, Const<6>, Const<6>, ArrayStorage<f64, 6, 6>>::identity(),
+                Matrix::from_data(ArrayStorage([[
+                    SensorSpec::new(0.0),
+                    SensorSpec::new(0.0),
+                    SensorSpec::new(0.0),
+                    SensorSpec::new(0.0),
+                    SensorSpec::new(0.0),
+                    SensorSpec::new(0.0),
+                ]])),
+                Matrix::from_data(ArrayStorage([[
+                    initial_position.0,
+                    initial_position.1,
+                    initial_orientation,
+                    0.0,
+                    0.0,
+                    0.0,
+                ]])),
             ),
-            mass: mass.abs(),
 
             max_acceleration_abs: max_acceleration_abs.abs(),
             max_braking_abs: max_braking_abs.abs(),
@@ -224,8 +205,7 @@ impl Car {
             cruise_control: false,
             cruise_control_set_point: 0.0,
 
-            input_forward_force: 0.0,
-            input_steering_accel: 0.0,
+            input: Matrix::from_data(ArrayStorage([[0.0, 0.0]])),
         };
 
         let (tx, rx) = channel::<CarMessage>();

@@ -21,7 +21,7 @@ fn main() -> eframe::Result {
     // km/h, 0-100 time instead of acceleration, km, etc.
     let mut car_handler = Car::spawn(
         (0.0, 0.0),
-        1000.0,
+        PI / 2.0,
         6.0,
         10.0,
         PI / 2.0,

@@ -8,6 +8,9 @@ pub type FunctionXUT<const N: usize, const R: usize> = fn(
     f64,
 ) -> f64;
 
+pub type StateDifferentialEquations<const N: usize, const R: usize> =
+    Matrix<FunctionXUT<N, R>, Const<N>, Const<1>, ArrayStorage<FunctionXUT<N, R>, N, 1>>;
+
 /// N - Number of states
 /// R - Number of inputs
 /// P - Number of sensors
@@ -17,7 +20,7 @@ pub struct ContinuousNL<const N: usize, const R: usize, const P: usize> {
 
     // dx/dt = f(x(t),u(t),t), w ~ N(0, sigma_x^2)
     // y = Cx + v, v ~ N(0, sigma_y^2)
-    dx_dt: Matrix<FunctionXUT<N, R>, Const<N>, Const<1>, ArrayStorage<FunctionXUT<N, R>, N, 1>>,
+    dx_dt: StateDifferentialEquations<N, R>,
 
     w: Matrix<SensorSpec, Const<N>, Const<1>, ArrayStorage<SensorSpec, N, 1>>,
 
@@ -65,10 +68,9 @@ impl<const N: usize, const R: usize, const P: usize> StepNL<N, R> for Continuous
         match self.integrator {
             Integrator::Euler => {
                 for i in 0..N {
-                    self.x[i] = self.x[i]
-                        + dt * (self.dx_dt[i](&self.x, &u, t))
-                            .min(max_clamp[i])
-                            .max(min_clamp[i]);
+                    self.x[i] = (self.x[i] + dt * (self.dx_dt[i](&self.x, &u, t)))
+                        .min(max_clamp[i])
+                        .max(min_clamp[i]);
                 }
             }
 
