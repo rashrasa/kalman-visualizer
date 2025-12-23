@@ -51,7 +51,6 @@ pub fn create_event_loop(
     mut function_ptr: Box<dyn FnMut(Duration) -> ()>,
 ) -> Box<dyn FnMut()> {
     Box::new(move || {
-        let start = Instant::now();
         let h = 1.0 / frequency;
         let mut last = Instant::now();
 
@@ -61,7 +60,7 @@ pub fn create_event_loop(
             last = Instant::now();
 
             while sum_delta >= h {
-                function_ptr(start.elapsed());
+                function_ptr(Duration::from_secs_f64(h));
                 sum_delta -= h;
             }
         }

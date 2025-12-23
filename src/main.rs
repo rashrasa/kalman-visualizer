@@ -19,16 +19,7 @@ fn main() -> eframe::Result {
 
     // TODO: Convert numbers to easy to understand units
     // km/h, 0-100 time instead of acceleration, km, etc.
-    let mut car_handler = Car::spawn(
-        (0.0, 0.0),
-        PI / 2.0,
-        6.0,
-        10.0,
-        PI / 2.0,
-        100.0,
-        (2.0 * PI) / 1.0,
-        240.0,
-    );
+    let mut car_handler = Car::spawn((0.0, 0.0), PI / 2.0, 3.0, 10.0, PI, 100.0 / 3.6, PI, 240.0);
 
     eframe::run_simple_native(
         "State Estimation Visualizer",
@@ -49,12 +40,15 @@ fn main() -> eframe::Result {
                         .max_width(f32::INFINITY)
                         .show(ui, |ui| {
                             let measurement = car_handler.measure();
-                            ui.label(format!("pos_x: {}", measurement[0]));
-                            ui.label(format!("pos_y: {}", measurement[1]));
-                            ui.label(format!("pos_theta: {}", measurement[2]));
-                            ui.label(format!("vel_x: {}", measurement[3]));
-                            ui.label(format!("vel_y: {}", measurement[4]));
-                            ui.label(format!("vel_theta: {}", measurement[5]));
+                            ui.label(format!("pos_x: {:.2} km", measurement[0] / 1000.0));
+                            ui.label(format!("pos_y: {:.2} km", measurement[1] / 1000.0));
+                            ui.label(format!("pos_theta: {}", format_theta(measurement[2])));
+                            ui.label(format!("vel_x: {:.2} km/h", measurement[3] * 3.6));
+                            ui.label(format!("vel_y: {:.2} km/h", measurement[4] * 3.6));
+                            ui.label(format!(
+                                "vel_theta: {:.2} degrees/s",
+                                measurement[5] * 180.0 / PI
+                            ));
                         });
                 });
             egui::CentralPanel::default().show(ctx, |ui| {
@@ -73,4 +67,12 @@ fn main() -> eframe::Result {
             ctx.request_repaint();
         },
     )
+}
+
+fn format_theta(theta: f64) -> String {
+    let mut degrees = theta * 180.0 / PI - 90.0;
+    if degrees < 0.0 {
+        degrees = degrees + 360.0;
+    }
+    format!("{:.2} degrees North", degrees)
 }

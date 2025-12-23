@@ -1,3 +1,4 @@
+use core::f64;
 use std::{
     collections::HashMap,
     sync::{
@@ -21,7 +22,7 @@ use crate::engine::{
 // friction = MU * F_N
 const MU: f64 = 0.4;
 const G: f64 = 9.81;
-const MASS: f64 = 1000.0;
+const MASS: f64 = 5000.0;
 
 pub struct Car {
     // Input limits
@@ -53,19 +54,16 @@ impl Car {
         let v_x = state[3].clone();
         let v_y = state[4].clone();
 
-        let speed = (v_x * v_x + v_y * v_y).sqrt();
+        let speed = (v_x * v_x + v_y * v_y).sqrt().max(1e-06); // only used for clamping
 
         let abs_clamp = Matrix::<f64, Const<6>, Const<1>, ArrayStorage<f64, 6, 1>>::new(
-            0.0,
-            0.0,
-            0.0,
+            f64::INFINITY,
+            f64::INFINITY,
+            f64::INFINITY,
             self.max_speed * p_t.sin(),
             self.max_speed * p_t.cos(),
             self.max_turning_ratio / speed,
         );
-
-        // TODO: Slow down car to simulate friction
-
         self.ds.step(0.0, dt, self.input, -abs_clamp, abs_clamp);
     }
     pub fn accelerate(&mut self) {
@@ -165,8 +163,8 @@ impl Car {
                     |x, _, _| x[3],
                     |x, _, _| x[4],
                     |x, _, _| x[5],
-                    |x, u, _| ((x[2]).sin() / MASS) * (MASS * G * MU + u[0]),
-                    |x, u, _| ((x[2]).cos() / MASS) * (MASS * G * MU + u[0]),
+                    |x, u, _| ((x[2]).cos() / MASS) * (-(x[3].signum()) * MASS * G * MU + u[0]),
+                    |x, u, _| ((x[2]).sin() / MASS) * (-(x[4].signum()) * MASS * G * MU + u[0]),
                     |_, u, _| u[1],
                 ]])),
                 Matrix::from_data(ArrayStorage([[
@@ -245,44 +243,45 @@ impl Car {
             create_event_loop(
                 polling_rate,
                 Box::new(move |dt| {
-                    while !*closed.read().unwrap() {
-                        let dt = dt.as_secs_f64();
-                        let current_input_state = input_state.read().unwrap().clone();
-                        let mut accel_enabled = (false, false);
-                        let mut steer_enabled = (false, false);
-                        for (key, enabled) in current_input_state.iter() {
-                            if *enabled {
-                                match *key {
-                                    Key::W => {
-                                        (&mut car.write().unwrap()).accelerate();
-                                        accel_enabled.0 = true;
-                                    }
-                                    Key::S => {
-                                        (&mut car.write().unwrap()).brake();
-                                        accel_enabled.1 = true;
-                                    }
-                                    Key::A => {
-                                        (&mut car.write().unwrap()).steer_left();
-                                        steer_enabled.0 = true;
-                                    }
-                                    Key::D => {
-                                        (&mut car.write().unwrap()).steer_right();
-                                        steer_enabled.1 = true;
-                                    }
-                                    Key::H => (&mut car.write().unwrap()).cruise_control_enable(),
-                                    Key::G => (&mut car.write().unwrap()).cruise_control_disable(),
-                                    _ => (),
+                    if *closed.read().unwrap() {
+                        return;
+                    }
+                    let dt = dt.as_secs_f64();
+                    let current_input_state = input_state.read().unwrap().clone();
+                    let mut accel_enabled = (false, false);
+                    let mut steer_enabled = (false, false);
+                    for (key, enabled) in current_input_state.iter() {
+                        if *enabled {
+                            match *key {
+                                Key::W => {
+                                    (&mut car.write().unwrap()).accelerate();
+                                    accel_enabled.0 = true;
                                 }
+                                Key::S => {
+                                    (&mut car.write().unwrap()).brake();
+                                    accel_enabled.1 = true;
+                                }
+                                Key::A => {
+                                    (&mut car.write().unwrap()).steer_left();
+                                    steer_enabled.0 = true;
+                                }
+                                Key::D => {
+                                    (&mut car.write().unwrap()).steer_right();
+                                    steer_enabled.1 = true;
+                                }
+                                Key::H => (&mut car.write().unwrap()).cruise_control_enable(),
+                                Key::G => (&mut car.write().unwrap()).cruise_control_disable(),
+                                _ => (),
                             }
                         }
-                        if !accel_enabled.0 && !accel_enabled.1 {
-                            (&mut car.write().unwrap()).zero_accel();
-                        }
-                        if !steer_enabled.0 && !steer_enabled.1 {
-                            (&mut car.write().unwrap()).zero_steer();
-                        }
-                        (&mut car.write().unwrap()).step(dt);
                     }
+                    if !accel_enabled.0 && !accel_enabled.1 {
+                        (&mut car.write().unwrap()).zero_accel();
+                    }
+                    if !steer_enabled.0 && !steer_enabled.1 {
+                        (&mut car.write().unwrap()).zero_steer();
+                    }
+                    (&mut car.write().unwrap()).step(dt);
                 }),
             )();
         });
