@@ -10,6 +10,7 @@ use env_logger::Builder;
 use kalman_visualizer::{engine::INPUT_KEYS, environment::vehicle::Car};
 
 // TODO: Maximize performance and efficiency after finishing naive approach
+// TODO: Create app constants file and include global constant for dt (simulation timestep)
 fn main() -> eframe::Result {
     Builder::from_default_env()
         .filter_level(log::LevelFilter::Info)
