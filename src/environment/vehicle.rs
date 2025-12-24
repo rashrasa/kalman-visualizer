@@ -50,7 +50,7 @@ impl Car {
 
         let p_t = state[2].clone();
 
-        let abs_clamp = Matrix::<f64, Const<5>, Const<1>, ArrayStorage<f64, 5, 1>>::new(
+        let abs_clamp = Mat::<f64, 5, 1>::new(
             f64::INFINITY,
             f64::INFINITY,
             f64::INFINITY,

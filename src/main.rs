@@ -66,9 +66,32 @@ fn main() -> eframe::Result {
 }
 
 fn format_theta(theta: f64) -> String {
-    let mut degrees = theta * 180.0 / PI - 90.0;
-    if degrees < 0.0 {
-        degrees = degrees + 360.0;
-    }
-    format!("{:.2} degrees North", degrees)
+    let mut theta = theta - PI / 2.0;
+    theta = -theta + 2.0 * PI * ((theta / (2.0 * PI)).trunc()); // flip direction, move to [0,2pi] range
+
+    let mut degrees = ((theta * 180.0 / PI).round()) as i64;
+
+    degrees = degrees.rem_euclid(360);
+
+    let label = if degrees < 0 + 45 / 2 {
+        "N"
+    } else if degrees < 45 + 45 / 2 {
+        "NE"
+    } else if degrees < 90 + 45 / 2 {
+        "E"
+    } else if degrees < 135 + 45 / 2 {
+        "SE"
+    } else if degrees < 180 + 45 / 2 {
+        "S"
+    } else if degrees < 225 + 45 / 2 {
+        "SW"
+    } else if degrees < 270 + 45 / 2 {
+        "W"
+    } else if degrees < 315 + 45 / 2 {
+        "NW"
+    } else {
+        "N"
+    };
+
+    format!("{:.2}\u{00B0} ({})", degrees, label)
 }
