@@ -47,6 +47,11 @@ impl<const N: usize, const R: usize, const P: usize> ContinuousNL<N, R, P> {
             x: x0,
         }
     }
+
+    /// Main use is for displaying real state in environment. Can be used to calculate measurement error.
+    pub fn state(&self) -> Mat<f64, N, 1> {
+        self.x.clone()
+    }
 }
 
 impl<const N: usize, const R: usize, const P: usize> StepNL<N, R> for ContinuousNL<N, R, P> {

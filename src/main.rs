@@ -23,7 +23,7 @@ fn main() -> eframe::Result {
 
     // TODO: Convert numbers to easy to understand units
     // km/h, 0-100 time instead of acceleration, km, etc.
-    let mut car_handler = Car::spawn((0.0, 0.0), PI / 2.0, 3.0, 10.0, PI, 100.0 / 3.6, 240.0);
+    let mut car_handler = Car::spawn((0.0, 0.0), PI / 2.0, 3.0, 10.0, PI, 300.0 / 3.6, 240.0);
 
     eframe::run_simple_native(
         "State Estimation Visualizer",
@@ -49,6 +49,7 @@ fn main() -> eframe::Result {
                             ui.label(format!("pos_x: {:.1} m", measurement[0]));
                             ui.label(format!("pos_y: {:.1} m", measurement[1]));
                             ui.label(format!("pos_theta: {}", format_theta(measurement[2])));
+                            ui.label(format!("speed: {:.2} km/h", measurement[3].abs() * 3.6));
                             ui.label(format!(
                                 "vel_x: {:.2} km/h",
                                 measurement[3] * measurement[2].cos() * 3.6
