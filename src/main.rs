@@ -1,12 +1,16 @@
 extern crate nalgebra as na;
 
 use core::f32;
-use std::f64::consts::PI;
+use std::{
+    f64::consts::PI,
+    sync::{Arc, Mutex, RwLock},
+};
 
-use eframe::egui;
-use egui::Id;
+use eframe::{egui, egui_glow, glow};
+use egui::{Id, Pos2, Rect, Vec2};
 use env_logger::Builder;
 
+use glow::HasContext;
 use kalman_visualizer::{engine::INPUT_KEYS, environment::vehicle::Car};
 
 // TODO: Maximize performance and efficiency after finishing naive approach
@@ -31,6 +35,8 @@ fn main() -> eframe::Result {
             ..Default::default()
         },
         move |ctx, _frame| {
+            let measurement = Arc::new(Mutex::new(car_handler.measure())); // read-only
+            let measurement_render = measurement.clone();
             egui::SidePanel::left(Id::new("filter_array"))
                 .resizable(false)
                 .exact_width(300.0)
@@ -39,18 +45,31 @@ fn main() -> eframe::Result {
                         .max_height(600.0)
                         .max_width(f32::INFINITY)
                         .show(ui, |ui| {
-                            let measurement = car_handler.measure();
+                            let measurement = *measurement.lock().unwrap();
                             ui.label(format!("pos_x: {:.1} m", measurement[0]));
                             ui.label(format!("pos_y: {:.1} m", measurement[1]));
                             ui.label(format!("pos_theta: {}", format_theta(measurement[2])));
-                            ui.label(format!("vel_x: {:.2} km/h", measurement[3] * 3.6));
-                            ui.label(format!("vel_y: {:.2} km/h", measurement[4] * 3.6));
+                            ui.label(format!(
+                                "vel_x: {:.2} km/h",
+                                measurement[3] * measurement[2].cos() * 3.6
+                            ));
+                            ui.label(format!(
+                                "vel_y: {:.2} km/h",
+                                measurement[3] * measurement[2].sin() * 3.6
+                            ));
                         });
                 });
             egui::CentralPanel::default().show(ctx, |ui| {
                 ui.heading("Dynamic System Visualizer");
+                ui.painter().add(egui::Shape::Callback(egui::PaintCallback {
+                    rect: Rect::from_center_size(Pos2::new(400.0, 400.0), Vec2::new(400.0, 400.0)),
+                    callback: Arc::new(egui_glow::CallbackFn::new(move |_info, painter| {
+                        // Paint here
+                        let measurement = measurement_render.clone();
+                        let gl = painter.gl();
+                    })),
+                }));
             });
-
             let keys = ctx.input(|i| i.keys_down.clone());
             for key in INPUT_KEYS {
                 if keys.contains(&key) {

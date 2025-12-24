@@ -36,7 +36,7 @@ pub struct Car {
     // state
     // x, y, theta
     // position, velocity
-    ds: ContinuousNL<5, 2, 5>,
+    ds: ContinuousNL<4, 2, 4>,
 
     cruise_control: bool,
     cruise_control_set_point: f64,
@@ -50,13 +50,8 @@ impl Car {
 
         let p_t = state[2].clone();
 
-        let abs_clamp = Mat::<f64, 5, 1>::new(
-            f64::INFINITY,
-            f64::INFINITY,
-            f64::INFINITY,
-            self.max_speed * p_t.cos(),
-            self.max_speed * p_t.sin(),
-        );
+        let abs_clamp =
+            Mat::<f64, 4, 1>::new(f64::INFINITY, f64::INFINITY, f64::INFINITY, self.max_speed);
         self.ds.step(0.0, dt, self.input, -abs_clamp, abs_clamp);
     }
     pub fn accelerate(&mut self) {
@@ -108,7 +103,7 @@ pub enum CarMessage {
 }
 
 pub enum MainMessage {
-    Measurement(Mat<f64, 5, 1>),
+    Measurement(Mat<f64, 4, 1>),
 }
 
 pub struct CarHandler {
@@ -123,7 +118,7 @@ impl CarHandler {
     pub fn terminate(&mut self) -> Result<(), SendError<CarMessage>> {
         return self.thread_sender.send(CarMessage::Terminate);
     }
-    pub fn measure(&self) -> Mat<f64, 5, 1> {
+    pub fn measure(&self) -> Mat<f64, 4, 1> {
         self.thread_sender.send(CarMessage::Measure).unwrap();
         match self.thread_receiver.recv().unwrap() {
             MainMessage::Measurement(m) => m,
@@ -152,24 +147,11 @@ impl Car {
             ds: ContinuousNL::new(
                 Integrator::RK4,
                 StateDifferentialEquations::from_data(ArrayStorage([[
-                    |x, _, _| x[3],
-                    |x, _, _| x[4],
+                    |x, _, _| x[3] * x[2].cos(),
+                    |x, _, _| x[3] * x[2].sin(),
                     |_, u, _| u[1],
                     |x, u, _| {
-                        let speed = (x[3].powi(2) + x[4].powi(2)).sqrt();
-                        let f_accel_x = u[0] * (x[2]).cos() * (1.0 / MASS);
-                        if speed < 1e-06 {
-                            return f_accel_x;
-                        }
-                        return (1.0 / MASS) * (-(x[3] / speed) * MASS * G * MU) + f_accel_x;
-                    },
-                    |x, u, _| {
-                        let speed = (x[3].powi(2) + x[4].powi(2)).sqrt();
-                        let f_accel_x = u[0] * (x[2]).sin() * (1.0 / MASS);
-                        if speed < 1e-06 {
-                            return f_accel_x;
-                        }
-                        return (1.0 / MASS) * (-(x[4] / speed) * MASS * G * MU) + f_accel_x;
+                        return (1.0 / MASS) * (-x[3].signum() * (MASS * G * MU) + u[0]);
                     },
                 ]])),
                 Matrix::from_data(ArrayStorage([[
@@ -177,11 +159,9 @@ impl Car {
                     SensorSpec::new(0.0),
                     SensorSpec::new(0.0),
                     SensorSpec::new(0.0),
-                    SensorSpec::new(0.0),
                 ]])),
-                Matrix::<f64, Const<5>, Const<5>, ArrayStorage<f64, 5, 5>>::identity(),
+                Matrix::<f64, Const<4>, Const<4>, ArrayStorage<f64, 4, 4>>::identity(),
                 Matrix::from_data(ArrayStorage([[
-                    SensorSpec::new(0.0),
                     SensorSpec::new(0.0),
                     SensorSpec::new(0.0),
                     SensorSpec::new(0.0),
@@ -191,7 +171,6 @@ impl Car {
                     initial_position.0,
                     initial_position.1,
                     initial_orientation,
-                    0.0,
                     0.0,
                 ]])),
             ),
