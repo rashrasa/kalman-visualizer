@@ -38,7 +38,7 @@ pub struct Car {
     // state
     // x, y, theta
     // position, velocity
-    ds: ContinuousNL<6, 2, 6>,
+    ds: ContinuousNL<5, 2, 5>,
 
     cruise_control: bool,
     cruise_control_set_point: f64,
@@ -56,13 +56,12 @@ impl Car {
 
         let speed = (v_x * v_x + v_y * v_y).sqrt().max(1e-06); // only used for clamping
 
-        let abs_clamp = Matrix::<f64, Const<6>, Const<1>, ArrayStorage<f64, 6, 1>>::new(
+        let abs_clamp = Matrix::<f64, Const<5>, Const<1>, ArrayStorage<f64, 5, 1>>::new(
             f64::INFINITY,
             f64::INFINITY,
             f64::INFINITY,
-            self.max_speed * p_t.sin(),
             self.max_speed * p_t.cos(),
-            self.max_turning_ratio / speed,
+            self.max_speed * p_t.sin(),
         );
         self.ds.step(0.0, dt, self.input, -abs_clamp, abs_clamp);
     }
@@ -115,7 +114,7 @@ pub enum CarMessage {
 }
 
 pub enum MainMessage {
-    Measurement(Matrix<f64, Const<6>, Const<1>, ArrayStorage<f64, 6, 1>>),
+    Measurement(Matrix<f64, Const<5>, Const<1>, ArrayStorage<f64, 5, 1>>),
 }
 
 pub struct CarHandler {
@@ -130,7 +129,7 @@ impl CarHandler {
     pub fn terminate(&mut self) -> Result<(), SendError<CarMessage>> {
         return self.thread_sender.send(CarMessage::Terminate);
     }
-    pub fn measure(&self) -> Matrix<f64, Const<6>, Const<1>, ArrayStorage<f64, 6, 1>> {
+    pub fn measure(&self) -> Matrix<f64, Const<5>, Const<1>, ArrayStorage<f64, 5, 1>> {
         self.thread_sender.send(CarMessage::Measure).unwrap();
         match self.thread_receiver.recv().unwrap() {
             MainMessage::Measurement(m) => m,
@@ -162,10 +161,9 @@ impl Car {
                 StateDifferentialEquations::from_data(ArrayStorage([[
                     |x, _, _| x[3],
                     |x, _, _| x[4],
-                    |x, _, _| x[5],
+                    |_, u, _| u[1],
                     |x, u, _| ((x[2]).cos() / MASS) * (-(x[3].signum()) * MASS * G * MU + u[0]),
                     |x, u, _| ((x[2]).sin() / MASS) * (-(x[4].signum()) * MASS * G * MU + u[0]),
-                    |_, u, _| u[1],
                 ]])),
                 Matrix::from_data(ArrayStorage([[
                     SensorSpec::new(0.0),
@@ -173,11 +171,9 @@ impl Car {
                     SensorSpec::new(0.0),
                     SensorSpec::new(0.0),
                     SensorSpec::new(0.0),
-                    SensorSpec::new(0.0),
                 ]])),
-                Matrix::<f64, Const<6>, Const<6>, ArrayStorage<f64, 6, 6>>::identity(),
+                Matrix::<f64, Const<5>, Const<5>, ArrayStorage<f64, 5, 5>>::identity(),
                 Matrix::from_data(ArrayStorage([[
-                    SensorSpec::new(0.0),
                     SensorSpec::new(0.0),
                     SensorSpec::new(0.0),
                     SensorSpec::new(0.0),
@@ -188,7 +184,6 @@ impl Car {
                     initial_position.0,
                     initial_position.1,
                     initial_orientation,
-                    0.0,
                     0.0,
                     0.0,
                 ]])),
@@ -223,20 +218,24 @@ impl Car {
                 let car = car_input;
 
                 while !*closed.read().unwrap() {
-                    let message = rx.recv().unwrap();
-                    match message {
-                        CarMessage::Terminate => break,
-                        CarMessage::Measure => {
-                            car_tx
-                                .send(MainMessage::Measurement(
-                                    (*car.read().unwrap()).ds.measure(),
-                                ))
-                                .unwrap();
-                        }
-                        CarMessage::KeyInput(c, down) => {
-                            (*input_state.write().unwrap()).insert(c, down);
-                        }
-                    };
+                    if let Ok(message) = rx.recv() {
+                        match message {
+                            CarMessage::Terminate => break,
+                            CarMessage::Measure => {
+                                car_tx
+                                    .send(MainMessage::Measurement(
+                                        (*car.read().unwrap()).ds.measure(),
+                                    ))
+                                    .unwrap();
+                            }
+                            CarMessage::KeyInput(c, down) => {
+                                (*input_state.write().unwrap()).insert(c, down);
+                            }
+                        };
+                    } else {
+                        // read lock assumed to be released after evaluating while condition
+                        *closed.write().unwrap() = true;
+                    }
                 }
                 *closed.write().unwrap() = true;
             });

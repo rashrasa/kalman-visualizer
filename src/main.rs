@@ -40,15 +40,11 @@ fn main() -> eframe::Result {
                         .max_width(f32::INFINITY)
                         .show(ui, |ui| {
                             let measurement = car_handler.measure();
-                            ui.label(format!("pos_x: {:.2} km", measurement[0] / 1000.0));
-                            ui.label(format!("pos_y: {:.2} km", measurement[1] / 1000.0));
+                            ui.label(format!("pos_x: {:.2} m", measurement[0]));
+                            ui.label(format!("pos_y: {:.2} m", measurement[1]));
                             ui.label(format!("pos_theta: {}", format_theta(measurement[2])));
                             ui.label(format!("vel_x: {:.2} km/h", measurement[3] * 3.6));
                             ui.label(format!("vel_y: {:.2} km/h", measurement[4] * 3.6));
-                            ui.label(format!(
-                                "vel_theta: {:.2} degrees/s",
-                                measurement[5] * 180.0 / PI
-                            ));
                         });
                 });
             egui::CentralPanel::default().show(ctx, |ui| {
