@@ -1,5 +1,3 @@
-use na::{ArrayStorage, Const, Matrix};
-
 use crate::engine::{Integrator, Mat, Measure, StepNL, sensor::SensorSpec};
 
 pub type FunctionXUT<const N: usize, const R: usize> =

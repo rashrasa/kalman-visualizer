@@ -40,8 +40,8 @@ fn main() -> eframe::Result {
                         .max_width(f32::INFINITY)
                         .show(ui, |ui| {
                             let measurement = car_handler.measure();
-                            ui.label(format!("pos_x: {:.2} m", measurement[0]));
-                            ui.label(format!("pos_y: {:.2} m", measurement[1]));
+                            ui.label(format!("pos_x: {:.1} m", measurement[0]));
+                            ui.label(format!("pos_y: {:.1} m", measurement[1]));
                             ui.label(format!("pos_theta: {}", format_theta(measurement[2])));
                             ui.label(format!("vel_x: {:.2} km/h", measurement[3] * 3.6));
                             ui.label(format!("vel_y: {:.2} km/h", measurement[4] * 3.6));
