@@ -105,7 +105,7 @@ mod tests {
     use super::*;
     type Mat1<T> = Matrix<T, Const<1>, Const<1>, ArrayStorage<T, 1, 1>>;
 
-    const DX_DT: Mat1<FunctionXUT<1, 1>> = Mat1::new(|x, u, t| {
+    const DX_DT: Mat1<FunctionXUT<1, 1>> = Mat1::new(|x, _, t| {
         // dx_dt = -5xsin(t), x(0) = 1
         // x(t) = e^(5cost-5)
         -5.0 * x[0] * t.sin()

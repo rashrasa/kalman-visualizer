@@ -32,8 +32,6 @@ pub struct Car {
 
     // "Physical" state limits
     max_speed: f64,
-    // angular_vel = max_turning_ratio / speed
-    max_turning_ratio: f64,
 
     // state
     // x, y, theta
@@ -51,10 +49,6 @@ impl Car {
         let state = self.ds.measure();
 
         let p_t = state[2].clone();
-        let v_x = state[3].clone();
-        let v_y = state[4].clone();
-
-        let speed = (v_x * v_x + v_y * v_y).sqrt().max(1e-06); // only used for clamping
 
         let abs_clamp = Matrix::<f64, Const<5>, Const<1>, ArrayStorage<f64, 5, 1>>::new(
             f64::INFINITY,
@@ -145,7 +139,6 @@ impl Car {
         max_braking_abs: f64,
         max_turning_abs: f64,
         max_speed: f64,
-        max_turning_ratio: f64,
         polling_rate: f64,
     ) -> CarHandler {
         // Car "knows" its own full state, will expose noisy measurements in the future
@@ -162,8 +155,22 @@ impl Car {
                     |x, _, _| x[3],
                     |x, _, _| x[4],
                     |_, u, _| u[1],
-                    |x, u, _| ((x[2]).cos() / MASS) * (-(x[3].signum()) * MASS * G * MU + u[0]),
-                    |x, u, _| ((x[2]).sin() / MASS) * (-(x[4].signum()) * MASS * G * MU + u[0]),
+                    |x, u, _| {
+                        let speed = (x[3].powi(2) + x[4].powi(2)).sqrt();
+                        let f_accel_x = u[0] * (x[2]).cos() * (1.0 / MASS);
+                        if speed < 1e-06 {
+                            return f_accel_x;
+                        }
+                        return (1.0 / MASS) * (-(x[3] / speed) * MASS * G * MU) + f_accel_x;
+                    },
+                    |x, u, _| {
+                        let speed = (x[3].powi(2) + x[4].powi(2)).sqrt();
+                        let f_accel_x = u[0] * (x[2]).sin() * (1.0 / MASS);
+                        if speed < 1e-06 {
+                            return f_accel_x;
+                        }
+                        return (1.0 / MASS) * (-(x[4] / speed) * MASS * G * MU) + f_accel_x;
+                    },
                 ]])),
                 Matrix::from_data(ArrayStorage([[
                     SensorSpec::new(0.0),
@@ -193,7 +200,6 @@ impl Car {
             max_braking_abs: max_braking_abs.abs(),
             max_turning_abs: max_turning_abs.abs(),
             max_speed: max_speed,
-            max_turning_ratio: max_turning_ratio,
 
             cruise_control: false,
             cruise_control_set_point: 0.0,
