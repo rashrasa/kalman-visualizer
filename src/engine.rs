@@ -34,10 +34,9 @@ pub trait Step<const N: usize, const R: usize> {
     );
 }
 
-pub trait StepNL<const N: usize, const R: usize> {
+pub trait StepNLTI<const N: usize, const R: usize> {
     fn step(
         &mut self,
-        t: f64,
         dt: f64,
         u: Mat<f64, R, 1>,
         min_clamp: Mat<f64, N, 1>,

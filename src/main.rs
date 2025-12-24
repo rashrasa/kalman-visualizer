@@ -23,7 +23,7 @@ fn main() -> eframe::Result {
 
     // TODO: Convert numbers to easy to understand units
     // km/h, 0-100 time instead of acceleration, km, etc.
-    let mut car_handler = Car::spawn((0.0, 0.0), PI / 2.0, 3.0, 10.0, PI, 300.0 / 3.6, 240.0);
+    let mut car_handler = Car::spawn((0.0, 0.0), PI / 2.0, 2.5, 10.0, PI, f64::INFINITY, 240.0);
 
     eframe::run_simple_native(
         "State Estimation Visualizer",

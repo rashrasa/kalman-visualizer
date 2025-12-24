@@ -13,8 +13,8 @@ use log::info;
 use na::{ArrayStorage, Const, Matrix};
 
 use crate::engine::{
-    Integrator, Mat, Measure, StepNL,
-    continuous_nl::{ContinuousNL, StateDifferentialEquations},
+    Integrator, Mat, Measure, StepNLTI,
+    continuous_nl::{ContinuousNLTI, StateDifferentialEquations},
     create_event_loop,
     sensor::SensorSpec,
 };
@@ -22,7 +22,7 @@ use crate::engine::{
 // friction = MU * F_N
 const MU: f64 = 0.4;
 const G: f64 = 9.81;
-const MASS: f64 = 5000.0;
+const MASS: f64 = 1500.0;
 
 pub struct Car {
     // Input limits
@@ -36,7 +36,7 @@ pub struct Car {
     // state
     // x, y, theta
     // position, velocity
-    ds: ContinuousNL<4, 2, 4>,
+    ds: ContinuousNLTI<4, 2, 4>,
 
     cruise_control: bool,
     cruise_control_set_point: f64,
@@ -46,13 +46,9 @@ pub struct Car {
 
 impl Car {
     pub fn step(&mut self, dt: f64) {
-        let state = self.ds.measure();
-
-        let p_t = state[2].clone();
-
         let abs_clamp =
             Mat::<f64, 4, 1>::new(f64::INFINITY, f64::INFINITY, f64::INFINITY, self.max_speed);
-        self.ds.step(0.0, dt, self.input, -abs_clamp, abs_clamp);
+        self.ds.step(dt, self.input, -abs_clamp, abs_clamp);
     }
     pub fn accelerate(&mut self) {
         self.input[0] = self.max_acceleration_abs * MASS * G;
@@ -144,14 +140,18 @@ impl Car {
             // dx./dt = - F_N*mu*sin(theta)/M + u[0] * sin(theta)/M
             // dy./dt = - F_N*mu*cos(theta)/M + u[0] * cos(theta)/M
             // dtheta./dt = u[1]
-            ds: ContinuousNL::new(
+            ds: ContinuousNLTI::new(
                 Integrator::RK4,
                 StateDifferentialEquations::from_data(ArrayStorage([[
-                    |x, _, _| x[3] * x[2].cos(),
-                    |x, _, _| x[3] * x[2].sin(),
-                    |_, u, _| u[1],
-                    |x, u, _| {
-                        return (1.0 / MASS) * (-x[3].signum() * (MASS * G * MU) + u[0]);
+                    |x, _| x[3] * x[2].cos(),
+                    |x, _| x[3] * x[2].sin(),
+                    |x, u| u[1] * (5.0 / x[3].max(1e-06)).min(1.0),
+                    |x, u| {
+                        let v_dir = x[3].signum();
+                        let f_friction = -v_dir * MASS * G * MU;
+                        let f_drag = -v_dir * x[3].powi(2) * 3.0;
+                        let f_throttle = u[0];
+                        return (1.0 / MASS) * (f_friction + f_drag + f_throttle);
                     },
                 ]])),
                 Matrix::from_data(ArrayStorage([[
