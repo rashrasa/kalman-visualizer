@@ -1,15 +1,11 @@
 use na::{ArrayStorage, Const, Matrix};
 
-use crate::engine::{Integrator, Measure, StepNL, sensor::SensorSpec};
+use crate::engine::{Integrator, Mat, Measure, StepNL, sensor::SensorSpec};
 
-pub type FunctionXUT<const N: usize, const R: usize> = fn(
-    &Matrix<f64, Const<N>, Const<1>, ArrayStorage<f64, N, 1>>,
-    &Matrix<f64, Const<R>, Const<1>, ArrayStorage<f64, R, 1>>,
-    f64,
-) -> f64;
+pub type FunctionXUT<const N: usize, const R: usize> =
+    fn(&Mat<f64, N, 1>, &Mat<f64, R, 1>, f64) -> f64;
 
-pub type StateDifferentialEquations<const N: usize, const R: usize> =
-    Matrix<FunctionXUT<N, R>, Const<N>, Const<1>, ArrayStorage<FunctionXUT<N, R>, N, 1>>;
+pub type StateDifferentialEquations<const N: usize, const R: usize> = Mat<FunctionXUT<N, R>, N, 1>;
 
 /// N - Number of states
 /// R - Number of inputs
@@ -22,25 +18,25 @@ pub struct ContinuousNL<const N: usize, const R: usize, const P: usize> {
     // y = Cx + v, v ~ N(0, sigma_y^2)
     dx_dt: StateDifferentialEquations<N, R>,
 
-    w: Matrix<SensorSpec, Const<N>, Const<1>, ArrayStorage<SensorSpec, N, 1>>,
+    w: Mat<SensorSpec, N, 1>,
 
-    c: Matrix<f64, Const<P>, Const<N>, ArrayStorage<f64, P, N>>,
-    v: Matrix<SensorSpec, Const<P>, Const<1>, ArrayStorage<SensorSpec, P, 1>>,
+    c: Mat<f64, P, N>,
+    v: Mat<SensorSpec, P, 1>,
 
-    x: Matrix<f64, Const<N>, Const<1>, ArrayStorage<f64, N, 1>>,
+    x: Mat<f64, N, 1>,
 }
 
 impl<const N: usize, const R: usize, const P: usize> ContinuousNL<N, R, P> {
     pub const fn new(
         integrator: Integrator,
 
-        dx_dt: Matrix<FunctionXUT<N, R>, Const<N>, Const<1>, ArrayStorage<FunctionXUT<N, R>, N, 1>>,
-        w: Matrix<SensorSpec, Const<N>, Const<1>, ArrayStorage<SensorSpec, N, 1>>,
+        dx_dt: StateDifferentialEquations<N, R>,
+        w: Mat<SensorSpec, N, 1>,
 
-        c: Matrix<f64, Const<P>, Const<N>, ArrayStorage<f64, P, N>>,
-        v: Matrix<SensorSpec, Const<P>, Const<1>, ArrayStorage<SensorSpec, P, 1>>,
+        c: Mat<f64, P, N>,
+        v: Mat<SensorSpec, P, 1>,
 
-        x0: Matrix<f64, Const<N>, Const<1>, ArrayStorage<f64, N, 1>>,
+        x0: Mat<f64, N, 1>,
     ) -> Self {
         ContinuousNL {
             integrator: integrator,
@@ -60,9 +56,9 @@ impl<const N: usize, const R: usize, const P: usize> StepNL<N, R> for Continuous
         &mut self,
         t: f64,
         dt: f64,
-        u: Matrix<f64, Const<R>, Const<1>, ArrayStorage<f64, R, 1>>,
-        min_clamp: Matrix<f64, Const<N>, Const<1>, ArrayStorage<f64, N, 1>>,
-        max_clamp: Matrix<f64, Const<N>, Const<1>, ArrayStorage<f64, N, 1>>,
+        u: Mat<f64, R, 1>,
+        min_clamp: Mat<f64, N, 1>,
+        max_clamp: Mat<f64, N, 1>,
     ) {
         // TODO: Add gaussian noise
         match self.integrator {
@@ -90,7 +86,7 @@ impl<const N: usize, const R: usize, const P: usize> StepNL<N, R> for Continuous
 }
 
 impl<const N: usize, const R: usize, const P: usize> Measure<P> for ContinuousNL<N, R, P> {
-    fn measure(&self) -> Matrix<f64, Const<P>, Const<1>, ArrayStorage<f64, P, 1>> {
+    fn measure(&self) -> Mat<f64, P, 1> {
         (self.c * self.x).clone()
     }
 }
@@ -103,7 +99,7 @@ mod tests {
     use egui::emath::Numeric;
 
     use super::*;
-    type Mat1<T> = Matrix<T, Const<1>, Const<1>, ArrayStorage<T, 1, 1>>;
+    type Mat1<T> = Mat<T, 1, 1>;
 
     const DX_DT: Mat1<FunctionXUT<1, 1>> = Mat1::new(|x, _, t| {
         // dx_dt = -5xsin(t), x(0) = 1

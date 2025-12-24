@@ -9,6 +9,9 @@ use na::{ArrayStorage, Const, Matrix};
 
 pub const INPUT_KEYS: [Key; 6] = [Key::W, Key::S, Key::A, Key::D, Key::H, Key::G];
 
+pub type Mat<T, const N: usize, const M: usize> =
+    Matrix<T, Const<N>, Const<M>, ArrayStorage<T, N, M>>;
+
 #[derive(Clone, Debug)]
 pub enum Integrator {
     Euler,
@@ -25,9 +28,9 @@ pub trait Step<const N: usize, const R: usize> {
     fn step(
         &mut self,
         dt: f64,
-        u: Matrix<f64, Const<R>, Const<1>, ArrayStorage<f64, R, 1>>,
-        min_clamp: Matrix<f64, Const<N>, Const<1>, ArrayStorage<f64, N, 1>>,
-        max_clamp: Matrix<f64, Const<N>, Const<1>, ArrayStorage<f64, N, 1>>,
+        u: Mat<f64, R, 1>,
+        min_clamp: Mat<f64, N, 1>,
+        max_clamp: Mat<f64, N, 1>,
     );
 }
 
@@ -36,14 +39,14 @@ pub trait StepNL<const N: usize, const R: usize> {
         &mut self,
         t: f64,
         dt: f64,
-        u: Matrix<f64, Const<R>, Const<1>, ArrayStorage<f64, R, 1>>,
-        min_clamp: Matrix<f64, Const<N>, Const<1>, ArrayStorage<f64, N, 1>>,
-        max_clamp: Matrix<f64, Const<N>, Const<1>, ArrayStorage<f64, N, 1>>,
+        u: Mat<f64, R, 1>,
+        min_clamp: Mat<f64, N, 1>,
+        max_clamp: Mat<f64, N, 1>,
     );
 }
 
 pub trait Measure<const P: usize> {
-    fn measure(&self) -> Matrix<f64, Const<P>, Const<1>, ArrayStorage<f64, P, 1>>;
+    fn measure(&self) -> Mat<f64, P, 1>;
 }
 
 pub fn create_event_loop(

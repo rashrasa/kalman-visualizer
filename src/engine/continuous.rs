@@ -1,6 +1,6 @@
 use na::{ArrayStorage, Const, Matrix};
 
-use crate::engine::{Integrator, Measure, Step, sensor::SensorSpec};
+use crate::engine::{Integrator, Mat, Measure, Step, sensor::SensorSpec};
 
 /// N - Number of states
 /// R - Number of inputs
@@ -11,30 +11,30 @@ pub struct Continuous<const N: usize, const R: usize, const P: usize> {
 
     // dx/dt = Ax+Bu+w, w ~ N(0, sigma_x^2)
     // y = Cx + v, v ~ N(0, sigma_y^2)
-    a: Matrix<f64, Const<N>, Const<N>, ArrayStorage<f64, N, N>>,
-    b: Matrix<f64, Const<N>, Const<R>, ArrayStorage<f64, N, R>>,
-    k: Matrix<f64, Const<N>, Const<1>, ArrayStorage<f64, N, 1>>,
-    w: Matrix<SensorSpec, Const<N>, Const<1>, ArrayStorage<SensorSpec, N, 1>>,
+    a: Mat<f64, N, N>,
+    b: Mat<f64, N, R>,
+    k: Mat<f64, N, 1>,
+    w: Mat<SensorSpec, N, 1>,
 
-    c: Matrix<f64, Const<P>, Const<N>, ArrayStorage<f64, P, N>>,
-    v: Matrix<SensorSpec, Const<P>, Const<1>, ArrayStorage<SensorSpec, P, 1>>,
+    c: Mat<f64, P, N>,
+    v: Mat<SensorSpec, P, 1>,
 
-    x: Matrix<f64, Const<N>, Const<1>, ArrayStorage<f64, N, 1>>,
+    x: Mat<f64, N, 1>,
 }
 
 impl<const N: usize, const R: usize, const P: usize> Continuous<N, R, P> {
     pub const fn new(
         integrator: Integrator,
 
-        a: Matrix<f64, Const<N>, Const<N>, ArrayStorage<f64, N, N>>,
-        b: Matrix<f64, Const<N>, Const<R>, ArrayStorage<f64, N, R>>,
-        k: Matrix<f64, Const<N>, Const<1>, ArrayStorage<f64, N, 1>>,
-        w: Matrix<SensorSpec, Const<N>, Const<1>, ArrayStorage<SensorSpec, N, 1>>,
+        a: Mat<f64, N, N>,
+        b: Mat<f64, N, R>,
+        k: Mat<f64, N, 1>,
+        w: Mat<SensorSpec, N, 1>,
 
-        c: Matrix<f64, Const<P>, Const<N>, ArrayStorage<f64, P, N>>,
-        v: Matrix<SensorSpec, Const<P>, Const<1>, ArrayStorage<SensorSpec, P, 1>>,
+        c: Mat<f64, P, N>,
+        v: Mat<SensorSpec, P, 1>,
 
-        x0: Matrix<f64, Const<N>, Const<1>, ArrayStorage<f64, N, 1>>,
+        x0: Mat<f64, N, 1>,
     ) -> Self {
         Continuous {
             integrator: integrator,
@@ -55,9 +55,9 @@ impl<const N: usize, const R: usize, const P: usize> Step<N, R> for Continuous<N
     fn step(
         &mut self,
         dt: f64,
-        u: Matrix<f64, Const<R>, Const<1>, ArrayStorage<f64, R, 1>>,
-        min_clamp: Matrix<f64, Const<N>, Const<1>, ArrayStorage<f64, N, 1>>,
-        max_clamp: Matrix<f64, Const<N>, Const<1>, ArrayStorage<f64, N, 1>>,
+        u: Mat<f64, R, 1>,
+        min_clamp: Mat<f64, N, 1>,
+        max_clamp: Mat<f64, N, 1>,
     ) {
         // TODO: Add gaussian noise
         match self.integrator {
@@ -82,7 +82,7 @@ impl<const N: usize, const R: usize, const P: usize> Step<N, R> for Continuous<N
 }
 
 impl<const N: usize, const R: usize, const P: usize> Measure<P> for Continuous<N, R, P> {
-    fn measure(&self) -> Matrix<f64, Const<P>, Const<1>, ArrayStorage<f64, P, 1>> {
+    fn measure(&self) -> Mat<f64, P, 1> {
         (self.c * self.x).clone()
     }
 }

@@ -13,7 +13,7 @@ use log::info;
 use na::{ArrayStorage, Const, Matrix};
 
 use crate::engine::{
-    Integrator, Measure, StepNL,
+    Integrator, Mat, Measure, StepNL,
     continuous_nl::{ContinuousNL, StateDifferentialEquations},
     create_event_loop,
     sensor::SensorSpec,
@@ -41,7 +41,7 @@ pub struct Car {
     cruise_control: bool,
     cruise_control_set_point: f64,
 
-    input: Matrix<f64, Const<2>, Const<1>, ArrayStorage<f64, 2, 1>>,
+    input: Mat<f64, 2, 1>,
 }
 
 impl Car {
@@ -108,7 +108,7 @@ pub enum CarMessage {
 }
 
 pub enum MainMessage {
-    Measurement(Matrix<f64, Const<5>, Const<1>, ArrayStorage<f64, 5, 1>>),
+    Measurement(Mat<f64, 5, 1>),
 }
 
 pub struct CarHandler {
@@ -123,7 +123,7 @@ impl CarHandler {
     pub fn terminate(&mut self) -> Result<(), SendError<CarMessage>> {
         return self.thread_sender.send(CarMessage::Terminate);
     }
-    pub fn measure(&self) -> Matrix<f64, Const<5>, Const<1>, ArrayStorage<f64, 5, 1>> {
+    pub fn measure(&self) -> Mat<f64, 5, 1> {
         self.thread_sender.send(CarMessage::Measure).unwrap();
         match self.thread_receiver.recv().unwrap() {
             MainMessage::Measurement(m) => m,
