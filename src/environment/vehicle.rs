@@ -124,7 +124,7 @@ impl Car {
                 StateDifferentialEquations::from_data(ArrayStorage([[
                     |x, _| x[3] * x[2].cos(),
                     |x, _| x[3] * x[2].sin(),
-                    |x, u| u[1] * (5.0 / x[3].max(1e-06)).min(1.0),
+                    |x, u| u[1] * (5.0 / x[3].abs().max(1e-06)).min(1.0),
                     |x, u| {
                         let v_dir = x[3].signum();
                         let f_friction = -v_dir * MASS * G * MU;
