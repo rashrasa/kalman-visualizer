@@ -109,10 +109,10 @@ fn main() -> eframe::Result {
                             ui.label(format!("est_vel_x: {:.1} km/h", estimate[2] / 3.6));
                             ui.label(format!("est_vel_y: {:.1} km/h", estimate[3] / 3.6));
 
-                            ui.label(format!("var_pos_x: {:.1} m", covar[(0, 0)]));
-                            ui.label(format!("var_pos_y: {:.1} m", covar[(1, 1)]));
-                            ui.label(format!("var_vel_x: {:.1} m", covar[(2, 2)]));
-                            ui.label(format!("var_vel_y: {:.1} m", covar[(3, 3)]));
+                            ui.label(format!("var_pos_x: {:.1} m", covar[0]));
+                            ui.label(format!("var_pos_y: {:.1} m", covar[1]));
+                            ui.label(format!("var_vel_x: {:.1} m", covar[2]));
+                            ui.label(format!("var_vel_y: {:.1} m", covar[3]));
                         });
                 });
             egui::CentralPanel::default().show(ctx, |ui| {

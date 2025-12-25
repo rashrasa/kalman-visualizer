@@ -74,6 +74,6 @@ impl<const N: usize, const R: usize, const P: usize> Filter<N, R, P>
     }
 
     fn covariance(&self) -> Mat<f64, N, N> {
-        self.p * self.p.transpose()
+        self.p.clone()
     }
 }
