@@ -14,7 +14,7 @@ use egui::{Id, Key, Pos2, Rect, Vec2};
 use env_logger::Builder;
 
 use kalman_visualizer::{
-    H, MASS, MU, SENSOR_VARIANCES,
+    H, MASS, SENSOR_VARIANCES,
     engine::{INPUT_KEYS, Mat, Measure, sensor::SensorSpec},
     environment::vehicle::Car,
     estimators::{Filter, kalman::LinearKalmanFilter},
@@ -63,8 +63,8 @@ fn main() -> eframe::Result {
             Mat::<SensorSpec, 4, 1>::from_data(ArrayStorage([[
                 SensorSpec::new(0.0),
                 SensorSpec::new(0.0),
-                SensorSpec::new(0.0),
-                SensorSpec::new(0.0),
+                SensorSpec::new(150.0),
+                SensorSpec::new(150.0),
             ]])),
             Mat::<f64, 2, 4>::from_data(ArrayStorage([
                 [1.0, 0.0],

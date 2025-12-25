@@ -5,7 +5,7 @@ use crate::{
 
 /// The system supplied should be discrete.
 pub struct LinearKalmanFilter<const N: usize, const R: usize, const P: usize> {
-    // x_(n+1) = Ax+Bu+w, w ~ N(0, sigma_x^2)
+    // x_(n+1) = Ax+Bu+k+w, w ~ N(0, sigma_x^2)
     // y = Cx + v, v ~ N(0, sigma_y^2)
     a: Mat<f64, N, N>,
     b: Mat<f64, N, R>,
@@ -70,10 +70,10 @@ impl<const N: usize, const R: usize, const P: usize> Filter<N, R, P>
     }
 
     fn state(&self) -> Mat<f64, N, 1> {
-        self.x.clone()
+        self.x
     }
 
     fn covariance(&self) -> Mat<f64, N, N> {
-        self.p.clone()
+        self.p
     }
 }
