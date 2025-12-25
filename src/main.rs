@@ -11,7 +11,14 @@ use egui::{Id, Pos2, Rect, Vec2};
 use env_logger::Builder;
 
 use glow::HasContext;
-use kalman_visualizer::{engine::INPUT_KEYS, environment::vehicle::Car};
+use kalman_visualizer::{
+    engine::{INPUT_KEYS, Mat, sensor::SensorSpec},
+    environment::vehicle::{Car, SENSOR_VARIANCES},
+    estimators::{Filter, kalman::LinearKalmanFilter},
+};
+use na::ArrayStorage;
+
+const H: f64 = 1.0 / 240.0;
 
 // TODO: Maximize performance and efficiency after finishing naive approach
 // TODO: Create app constants file and include global constant for dt (simulation timestep)
@@ -23,7 +30,38 @@ fn main() -> eframe::Result {
 
     // TODO: Convert numbers to easy to understand units
     // km/h, 0-100 time instead of acceleration, km, etc.
-    let mut car_handler = Car::spawn((0.0, 0.0), PI / 2.0, 2.5, 10.0, PI, f64::INFINITY, 240.0);
+    let mut car_handler = Car::spawn((0.0, 0.0), PI / 4.0, 2.5, 10.0, PI, f64::INFINITY, 1.0 / H);
+
+    // model: states are p_x, p_y, v_x, v_y
+    let mut filter: LinearKalmanFilter<4, 2, 2> = LinearKalmanFilter::new(
+        Mat::<f64, 4, 4>::from_data(ArrayStorage([
+            [1.0, 0.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0, 0.0],
+            [H, 0.0, 1.0, 0.0],
+            [0.0, H, 0.0, 1.0],
+        ])),
+        H * Mat::<f64, 4, 2>::from_data(ArrayStorage([
+            // may diverge if direction is ever changed
+            [0.0, 0.0, (PI / 4.0).cos(), (PI / 4.0).sin()],
+            [0.0, 0.0, 0.0, 0.0],
+        ])),
+        H * Mat::<f64, 4, 1>::from_data(ArrayStorage([[0.0, 0.0, 0.0, 0.0]])),
+        Mat::<SensorSpec, 4, 1>::from_data(ArrayStorage([[
+            SensorSpec::new(0.0),
+            SensorSpec::new(0.0),
+            SensorSpec::new(0.0),
+            SensorSpec::new(0.0),
+        ]])),
+        Mat::<f64, 2, 4>::from_data(ArrayStorage([
+            [1.0, 0.0],
+            [0.0, 1.0],
+            [0.0, 0.0],
+            [0.0, 0.0],
+        ])),
+        SENSOR_VARIANCES,
+        Mat::<f64, 4, 1>::from_data(ArrayStorage([[0.0, 0.0, 1.0, 1.0]])),
+        Mat::<f64, 4, 4>::from_diagonal(&[0.0, 0.0, 50.0, 50.0].into()),
+    );
 
     eframe::run_simple_native(
         "State Estimation Visualizer",
@@ -35,8 +73,10 @@ fn main() -> eframe::Result {
             ..Default::default()
         },
         move |ctx, _frame| {
-            let measurement = Arc::new(Mutex::new(car_handler.measure())); // read-only
+            let measurement = Arc::new(car_handler.measure()); // read-only
+            let state = Arc::new(car_handler.state());
             let measurement_render = measurement.clone();
+            let state_render = state.clone();
             egui::SidePanel::left(Id::new("filter_array"))
                 .resizable(false)
                 .exact_width(300.0)
@@ -45,19 +85,34 @@ fn main() -> eframe::Result {
                         .max_height(600.0)
                         .max_width(f32::INFINITY)
                         .show(ui, |ui| {
-                            let measurement = *measurement.lock().unwrap();
-                            ui.label(format!("pos_x: {:.1} m", measurement[0]));
-                            ui.label(format!("pos_y: {:.1} m", measurement[1]));
-                            ui.label(format!("pos_theta: {}", format_theta(measurement[2])));
-                            ui.label(format!("speed: {:.2} km/h", measurement[3].abs() * 3.6));
+                            let measurement = *measurement;
+                            let (state, input) = *state;
+                            filter.filter(measurement, input);
+                            let estimate = filter.state();
+                            let covar = filter.covariance();
+                            ui.label(format!("x: {:.1} m", state[0]));
+                            ui.label(format!("y: {:.1} m", state[1]));
+                            ui.label(format!("{}", format_theta(state[2])));
+                            ui.label(format!("speed: {:.2} km/h", state[3].abs() * 3.6));
                             ui.label(format!(
                                 "vel_x: {:.2} km/h",
-                                measurement[3] * measurement[2].cos() * 3.6
+                                state[3] * state[2].cos() * 3.6
                             ));
                             ui.label(format!(
                                 "vel_y: {:.2} km/h",
-                                measurement[3] * measurement[2].sin() * 3.6
+                                state[3] * state[2].sin() * 3.6
                             ));
+
+                            ui.add(egui::Separator::default());
+                            ui.label(format!("est_pos_x: {:.1} m", estimate[0]));
+                            ui.label(format!("est_pos_y: {:.1} m", estimate[1]));
+                            ui.label(format!("est_vel_x: {:.1} km/h", estimate[2] / 3.6));
+                            ui.label(format!("est_vel_y: {:.1} km/h", estimate[3] / 3.6));
+
+                            ui.label(format!("var_pos_x: {:.1} m", covar[(0, 0)]));
+                            ui.label(format!("var_pos_y: {:.1} m", covar[(1, 1)]));
+                            ui.label(format!("var_vel_x: {:.1} m", covar[(2, 2)]));
+                            ui.label(format!("var_vel_y: {:.1} m", covar[(3, 3)]));
                         });
                 });
             egui::CentralPanel::default().show(ctx, |ui| {
@@ -67,6 +122,7 @@ fn main() -> eframe::Result {
                     callback: Arc::new(egui_glow::CallbackFn::new(move |_info, painter| {
                         // Paint here
                         let measurement = measurement_render.clone();
+                        let (state, u) = *state_render;
                         let gl = painter.gl();
                     })),
                 }));

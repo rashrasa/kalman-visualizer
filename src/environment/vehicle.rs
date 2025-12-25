@@ -23,6 +23,8 @@ use crate::engine::{
 const MU: f64 = 0.4;
 const G: f64 = 9.81;
 const MASS: f64 = 1500.0;
+pub const SENSOR_VARIANCES: Mat<SensorSpec, 2, 1> =
+    Matrix::from_data(ArrayStorage([[SensorSpec::new(2.0), SensorSpec::new(2.0)]]));
 
 pub struct Car {
     // Input limits
@@ -33,10 +35,10 @@ pub struct Car {
     // "Physical" state limits
     max_speed: f64,
 
-    // state
-    // x, y, theta
-    // position, velocity
-    ds: ContinuousNLTI<4, 2, 4>,
+    // state: x position, y position, heading, velocity in the heading direction
+    // inputs: throttle, steering speed
+    // sensors: x, y position
+    ds: ContinuousNLTI<4, 2, 2>,
 
     cruise_control: bool,
     cruise_control_set_point: f64,
@@ -96,10 +98,13 @@ pub enum CarMessage {
     Terminate,
     KeyInput(Key, bool),
     Measure,
+    State,
 }
 
 pub enum MainMessage {
-    Measurement(Mat<f64, 4, 1>),
+    Measurement(Mat<f64, 2, 1>),
+    // x, u
+    ExactState(Mat<f64, 4, 1>, Mat<f64, 2, 1>),
 }
 
 pub struct CarHandler {
@@ -114,10 +119,20 @@ impl CarHandler {
     pub fn terminate(&mut self) -> Result<(), SendError<CarMessage>> {
         return self.thread_sender.send(CarMessage::Terminate);
     }
-    pub fn measure(&self) -> Mat<f64, 4, 1> {
+    pub fn measure(&self) -> Mat<f64, 2, 1> {
         self.thread_sender.send(CarMessage::Measure).unwrap();
         match self.thread_receiver.recv().unwrap() {
             MainMessage::Measurement(m) => m,
+            MainMessage::ExactState(_, _) => {
+                panic!("Received incorrect message. Expected measurement")
+            }
+        }
+    }
+    pub fn state(&self) -> (Mat<f64, 4, 1>, Mat<f64, 2, 1>) {
+        self.thread_sender.send(CarMessage::State).unwrap();
+        match self.thread_receiver.recv().unwrap() {
+            MainMessage::ExactState(m, u) => (m, u),
+            MainMessage::Measurement(_) => panic!("Received incorrect message. Expected state"),
         }
     }
 }
@@ -154,19 +169,8 @@ impl Car {
                         return (1.0 / MASS) * (f_friction + f_drag + f_throttle);
                     },
                 ]])),
-                Matrix::from_data(ArrayStorage([[
-                    SensorSpec::new(0.0),
-                    SensorSpec::new(0.0),
-                    SensorSpec::new(0.0),
-                    SensorSpec::new(0.0),
-                ]])),
-                Matrix::<f64, Const<4>, Const<4>, ArrayStorage<f64, 4, 4>>::identity(),
-                Matrix::from_data(ArrayStorage([[
-                    SensorSpec::new(0.0),
-                    SensorSpec::new(0.0),
-                    SensorSpec::new(0.0),
-                    SensorSpec::new(0.0),
-                ]])),
+                Mat::<f64, 2, 4>::identity(),
+                SENSOR_VARIANCES,
                 Matrix::from_data(ArrayStorage([[
                     initial_position.0,
                     initial_position.1,
@@ -215,6 +219,12 @@ impl Car {
                             }
                             CarMessage::KeyInput(c, down) => {
                                 (*input_state.write().unwrap()).insert(c, down);
+                            }
+                            CarMessage::State => {
+                                let value = &car.read().unwrap();
+                                car_tx
+                                    .send(MainMessage::ExactState(value.ds.state(), value.input))
+                                    .unwrap();
                             }
                         };
                     } else {

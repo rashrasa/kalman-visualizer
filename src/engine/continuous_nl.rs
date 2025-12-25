@@ -1,3 +1,5 @@
+use rand_distr::{Distribution, Normal};
+
 use crate::engine::{Integrator, Mat, Measure, StepNLTI, sensor::SensorSpec};
 
 // Non-Linear Time-Invariant System
@@ -16,20 +18,17 @@ pub struct ContinuousNLTI<const N: usize, const R: usize, const P: usize> {
     // y = Cx + v, v ~ N(0, sigma_y^2)
     dx_dt: StateDifferentialEquations<N, R>,
 
-    w: Mat<SensorSpec, N, 1>,
-
     c: Mat<f64, P, N>,
-    v: Mat<SensorSpec, P, 1>,
+    v: Mat<Normal<f64>, P, 1>,
 
     x: Mat<f64, N, 1>,
 }
 
 impl<const N: usize, const R: usize, const P: usize> ContinuousNLTI<N, R, P> {
-    pub const fn new(
+    pub fn new(
         integrator: Integrator,
 
         dx_dt: StateDifferentialEquations<N, R>,
-        w: Mat<SensorSpec, N, 1>,
 
         c: Mat<f64, P, N>,
         v: Mat<SensorSpec, P, 1>,
@@ -39,10 +38,9 @@ impl<const N: usize, const R: usize, const P: usize> ContinuousNLTI<N, R, P> {
         ContinuousNLTI {
             integrator: integrator,
             dx_dt: dx_dt,
-            w: w,
 
             c: c,
-            v: v,
+            v: v.map(|sp| Normal::new(0.0, sp.variance().sqrt()).unwrap()),
 
             x: x0,
         }
@@ -89,7 +87,7 @@ impl<const N: usize, const R: usize, const P: usize> StepNLTI<N, R> for Continuo
 
 impl<const N: usize, const R: usize, const P: usize> Measure<P> for ContinuousNLTI<N, R, P> {
     fn measure(&self) -> Mat<f64, P, 1> {
-        (self.c * self.x).clone()
+        self.c * self.x + self.v.map(|dist| dist.sample(&mut rand::rng()))
     }
 }
 
@@ -123,8 +121,8 @@ mod tests {
 
     #[test]
     fn test_correct_step_scalar() {
-        let mut system_eul = ContinuousNLTI::<2, 2, 1>::new(Integrator::Euler, DX_DT, W, C, V, X0);
-        let mut system_rk4 = ContinuousNLTI::<2, 2, 1>::new(Integrator::RK4, DX_DT, W, C, V, X0);
+        let mut system_eul = ContinuousNLTI::<2, 2, 1>::new(Integrator::Euler, DX_DT, C, V, X0);
+        let mut system_rk4 = ContinuousNLTI::<2, 2, 1>::new(Integrator::RK4, DX_DT, C, V, X0);
 
         let true_val = |t: f64| (5.0 * t.cos() - 5.0).exp();
 
