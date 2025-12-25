@@ -12,38 +12,33 @@ use egui::Key;
 use log::info;
 use na::{ArrayStorage, Const, Matrix};
 
-use crate::engine::{
-    Integrator, Mat, Measure, StepNLTI,
-    continuous_nl::{ContinuousNLTI, StateDifferentialEquations},
-    create_event_loop,
-    sensor::SensorSpec,
+use crate::{
+    G, MASS, MU, SENSOR_VARIANCES,
+    engine::{
+        Integrator, Mat, Measure, StepNLTI,
+        continuous_nl::{ContinuousNLTI, StateDifferentialEquations},
+        sensor::SensorSpec,
+    },
 };
-
-// friction = MU * F_N
-const MU: f64 = 0.4;
-const G: f64 = 9.81;
-const MASS: f64 = 1500.0;
-pub const SENSOR_VARIANCES: Mat<SensorSpec, 2, 1> =
-    Matrix::from_data(ArrayStorage([[SensorSpec::new(2.0), SensorSpec::new(2.0)]]));
 
 pub struct Car {
     // Input limits
-    max_acceleration_abs: f64,
-    max_braking_abs: f64,
-    max_turning_abs: f64,
+    pub max_acceleration_abs: f64,
+    pub max_braking_abs: f64,
+    pub max_turning_abs: f64,
 
     // "Physical" state limits
-    max_speed: f64,
+    pub max_speed: f64,
 
     // state: x position, y position, heading, velocity in the heading direction
     // inputs: throttle, steering speed
     // sensors: x, y position
-    ds: ContinuousNLTI<4, 2, 2>,
+    pub ds: ContinuousNLTI<4, 2, 2>,
 
-    cruise_control: bool,
-    cruise_control_set_point: f64,
+    pub cruise_control: bool,
+    pub cruise_control_set_point: f64,
 
-    input: Mat<f64, 2, 1>,
+    pub input: Mat<f64, 2, 1>,
 }
 
 impl Car {
@@ -107,48 +102,17 @@ pub enum MainMessage {
     ExactState(Mat<f64, 4, 1>, Mat<f64, 2, 1>),
 }
 
-pub struct CarHandler {
-    thread_sender: Sender<CarMessage>,
-    thread_receiver: Receiver<MainMessage>,
-}
-
-impl CarHandler {
-    pub fn notify_input(&mut self, key: Key, enabled: bool) -> Result<(), SendError<CarMessage>> {
-        self.thread_sender.send(CarMessage::KeyInput(key, enabled))
-    }
-    pub fn terminate(&mut self) -> Result<(), SendError<CarMessage>> {
-        return self.thread_sender.send(CarMessage::Terminate);
-    }
-    pub fn measure(&self) -> Mat<f64, 2, 1> {
-        self.thread_sender.send(CarMessage::Measure).unwrap();
-        match self.thread_receiver.recv().unwrap() {
-            MainMessage::Measurement(m) => m,
-            MainMessage::ExactState(_, _) => {
-                panic!("Received incorrect message. Expected measurement")
-            }
-        }
-    }
-    pub fn state(&self) -> (Mat<f64, 4, 1>, Mat<f64, 2, 1>) {
-        self.thread_sender.send(CarMessage::State).unwrap();
-        match self.thread_receiver.recv().unwrap() {
-            MainMessage::ExactState(m, u) => (m, u),
-            MainMessage::Measurement(_) => panic!("Received incorrect message. Expected state"),
-        }
-    }
-}
-
 impl Car {
-    pub fn spawn(
+    pub fn new(
         initial_position: (f64, f64),
         initial_orientation: f64,
         max_acceleration_abs: f64,
         max_braking_abs: f64,
         max_turning_abs: f64,
         max_speed: f64,
-        polling_rate: f64,
-    ) -> CarHandler {
+    ) -> Self {
         // Car "knows" its own full state, will expose noisy measurements in the future
-        let car = Car {
+        Car {
             // dx/dt = x.
             // dy/dt = y.
             // dtheta/dt = theta.
@@ -188,101 +152,6 @@ impl Car {
             cruise_control_set_point: 0.0,
 
             input: Matrix::from_data(ArrayStorage([[0.0, 0.0]])),
-        };
-
-        let (tx, rx) = channel::<CarMessage>();
-        let (car_tx, car_rx) = channel::<MainMessage>();
-
-        thread::spawn(move || {
-            let closed = Arc::new(RwLock::new(false));
-            let input_state = Arc::new(RwLock::new(HashMap::<Key, bool>::with_capacity(100)));
-            let car = Arc::new(RwLock::new(car));
-
-            let closed_input = closed.clone();
-            let input_state_input = input_state.clone();
-            let car_input = car.clone();
-            thread::spawn(move || {
-                let closed = closed_input;
-                let input_state = input_state_input;
-                let car = car_input;
-
-                while !*closed.read().unwrap() {
-                    if let Ok(message) = rx.recv() {
-                        match message {
-                            CarMessage::Terminate => break,
-                            CarMessage::Measure => {
-                                car_tx
-                                    .send(MainMessage::Measurement(
-                                        (*car.read().unwrap()).ds.measure(),
-                                    ))
-                                    .unwrap();
-                            }
-                            CarMessage::KeyInput(c, down) => {
-                                (*input_state.write().unwrap()).insert(c, down);
-                            }
-                            CarMessage::State => {
-                                let value = &car.read().unwrap();
-                                car_tx
-                                    .send(MainMessage::ExactState(value.ds.state(), value.input))
-                                    .unwrap();
-                            }
-                        };
-                    } else {
-                        // read lock assumed to be released after evaluating while condition
-                        *closed.write().unwrap() = true;
-                    }
-                }
-                *closed.write().unwrap() = true;
-            });
-            create_event_loop(
-                polling_rate,
-                Box::new(move |dt| {
-                    if *closed.read().unwrap() {
-                        return;
-                    }
-                    let dt = dt.as_secs_f64();
-                    let current_input_state = input_state.read().unwrap().clone();
-                    let mut accel_enabled = (false, false);
-                    let mut steer_enabled = (false, false);
-                    for (key, enabled) in current_input_state.iter() {
-                        if *enabled {
-                            match *key {
-                                Key::W => {
-                                    (&mut car.write().unwrap()).accelerate();
-                                    accel_enabled.0 = true;
-                                }
-                                Key::S => {
-                                    (&mut car.write().unwrap()).brake();
-                                    accel_enabled.1 = true;
-                                }
-                                Key::A => {
-                                    (&mut car.write().unwrap()).steer_left();
-                                    steer_enabled.0 = true;
-                                }
-                                Key::D => {
-                                    (&mut car.write().unwrap()).steer_right();
-                                    steer_enabled.1 = true;
-                                }
-                                Key::H => (&mut car.write().unwrap()).cruise_control_enable(),
-                                Key::G => (&mut car.write().unwrap()).cruise_control_disable(),
-                                _ => (),
-                            }
-                        }
-                    }
-                    if !accel_enabled.0 && !accel_enabled.1 {
-                        (&mut car.write().unwrap()).zero_accel();
-                    }
-                    if !steer_enabled.0 && !steer_enabled.1 {
-                        (&mut car.write().unwrap()).zero_steer();
-                    }
-                    (&mut car.write().unwrap()).step(dt);
-                }),
-            )();
-        });
-
-        CarHandler {
-            thread_sender: tx,
-            thread_receiver: car_rx,
         }
     }
 }

@@ -47,24 +47,3 @@ pub trait StepNLTI<const N: usize, const R: usize> {
 pub trait Measure<const P: usize> {
     fn measure(&self) -> Mat<f64, P, 1>;
 }
-
-pub fn create_event_loop(
-    frequency: f64,
-    mut function_ptr: Box<dyn FnMut(Duration) -> ()>,
-) -> Box<dyn FnMut()> {
-    Box::new(move || {
-        let h = 1.0 / frequency;
-        let mut last = Instant::now();
-
-        let mut sum_delta: f64 = 0.0;
-        loop {
-            sum_delta += last.elapsed().as_secs_f64();
-            last = Instant::now();
-
-            while sum_delta >= h {
-                function_ptr(Duration::from_secs_f64(h));
-                sum_delta -= h;
-            }
-        }
-    })
-}
