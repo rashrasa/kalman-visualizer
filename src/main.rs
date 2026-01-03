@@ -215,12 +215,69 @@ fn main() -> eframe::Result {
                 ui.painter().add(egui::Shape::Callback(egui::PaintCallback {
                     rect: Rect::from_center_size(Pos2::new(400.0, 400.0), Vec2::new(400.0, 400.0)),
                     callback: Arc::new(egui_glow::CallbackFn::new(move |_info, painter| {
-                        // Paint here
-                        let measurement = measurement_render;
-                        let state = state_render;
-                        let input = input_render;
+                        // // Paint here
+                        // let measurement = measurement_render;
+                        // let input = input_render;
 
-                        let gl = painter.gl();
+                        // let gl = painter.gl();
+                        // let vertices = [-0.5, -0.5, 0.0, 0.5, -0.5, 0.0, 0.0, 0.5, 0.0];
+                        // unsafe {
+                        //     let buffer = gl.create_buffer().unwrap();
+
+                        //     gl.bind_buffer(glow::ARRAY_BUFFER, Some(buffer));
+                        //     gl.buffer_data_u8_slice(
+                        //         buffer.0.into(),
+                        //         bytemuck::bytes_of(&vertices),
+                        //         glow::STATIC_DRAW,
+                        //     );
+
+                        //     let vertex_shader_source = r"#version 330 core
+                        //     layout (location = 0) in vec3 aPos;
+
+                        //     void main() {
+                        //         gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0f);
+                        //     }";
+
+                        //     let vertex_shader = gl.create_shader(glow::VERTEX_SHADER).unwrap();
+                        //     gl.shader_source(vertex_shader, vertex_shader_source);
+                        //     gl.compile_shader(vertex_shader);
+
+                        //     info!("{}", gl.get_shader_info_log(vertex_shader));
+
+                        //     let frag_shader_source = r"#version 330 core
+                        //     out vec4 FragColor;
+
+                        //     void main() {
+                        //         FragColor = vec4(1.0f, 0.0f, 0.0f, 1.0f);
+                        //     }";
+
+                        //     let frag_shader = gl.create_shader(glow::FRAGMENT_SHADER).unwrap();
+                        //     gl.shader_source(frag_shader, frag_shader_source);
+                        //     gl.compile_shader(frag_shader);
+
+                        //     info!("{}", gl.get_shader_info_log(frag_shader));
+
+                        //     let program = gl.create_program().unwrap();
+                        //     gl.attach_shader(program, vertex_shader);
+                        //     gl.attach_shader(program, frag_shader);
+                        //     gl.link_program(program);
+
+                        //     info!("{}", gl.get_program_info_log(program));
+
+                        //     gl.use_program(program.into());
+
+                        //     gl.delete_shader(vertex_shader);
+                        //     gl.delete_shader(frag_shader);
+
+                        //     let vao = gl.create_vertex_array().unwrap();
+                        //     gl.bind_vertex_array(vao.into());
+
+                        //     gl.bind_buffer(glow::ARRAY_BUFFER, Some(buffer));
+                        //     gl.vertex_attrib_pointer_f32(0, 3, glow::FLOAT, false, 3 * 4, 0);
+                        //     gl.enable_vertex_attrib_array(0);
+
+                        //     gl.draw_arrays(glow::TRIANGLES, 0, 3);
+                        // }
                     })),
                 }));
             });

@@ -10,11 +10,10 @@ pub const MU: f64 = 0.4;
 pub const G: f64 = 9.81;
 pub const MASS: f64 = 1500.0;
 pub const SENSOR_VARIANCES: Mat<SensorSpec, 2, 1> = Mat::from_data(ArrayStorage([[
-    SensorSpec::new(1000.0),
-    SensorSpec::new(1000.0),
+    SensorSpec::new(100.0),
+    SensorSpec::new(100.0),
 ]]));
 
 pub mod engine;
 pub mod environment;
 pub mod estimators;
-pub mod visualizer;
