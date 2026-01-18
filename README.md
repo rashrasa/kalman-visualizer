@@ -2,7 +2,7 @@
 
 State estimation visualizer built with egui + eframe.
 
-## Completed
+## Currently Completed
 
 **Non-Linear Time-Invariant system data structure and integrators**:
 <img width="859" height="407" alt="image" src="https://github.com/user-attachments/assets/af7aec6c-e6ab-4dd8-b86e-909fe8b17843" />
