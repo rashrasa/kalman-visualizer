@@ -1,10 +1,24 @@
-# (WIP) kalman-visualizer
+# kalman-visualizer
 
 State estimation visualizer built with egui + eframe.
 
+## Completed
+
+**Non-Linear Time-Invariant system data structure and integrators**:
+<img width="859" height="407" alt="image" src="https://github.com/user-attachments/assets/af7aec6c-e6ab-4dd8-b86e-909fe8b17843" />
+
+Can be used to represent any arbitrary NLTI/LTI system with any set of inputs
+
+
+Simple key controls by polling eframe input state and sending events through channels to input thread:
+
+![kalman visualizer](https://github.com/user-attachments/assets/c7be2d0c-bc21-422c-93d9-4e3704d99123)
+
+*Using W to go forward. Car naturally reaches top speed due to wind resistence.* 
+
 ## Components
 
-### (WIP) Dynamic System Engine (Core)
+### Dynamic System Engine (Core)
 
 - Data structures to represent continuous and discrete dynamic systems
 - Integrator choices (Euler and RK4)
