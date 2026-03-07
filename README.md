@@ -14,7 +14,7 @@ Simple key controls by polling eframe input state and sending events through cha
 
 ![kalman visualizer](https://github.com/user-attachments/assets/c7be2d0c-bc21-422c-93d9-4e3704d99123)
 
-*Using W to go forward. Car naturally reaches top speed due to wind resistence.* 
+*Using W to go forward. Car naturally reaches top speed due to wind resistance.* 
 
 ## Components
 
